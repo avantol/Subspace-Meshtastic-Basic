@@ -10,8 +10,8 @@ A Python gateway that lets an allowed Meshtastic node use JS8Call over DMs: send
 ## Running
 
 - Python environment: `~/meshtastic-venv` (meshtastic 2.7.11, pyjs8call 0.2.3). Run with `~/meshtastic-venv/bin/python`, not the system python.
-- Start: `~/js8mesh/run-js8mesh.sh`. JS8Call should be running first, though pyjs8call will start it if not.
-- Stop: kill by PID. `pgrep -f '^/bin/bash /home/john/js8mesh/run-js8mesh.sh'` finds the wrapper and `pgrep -f '^/home/john/meshtastic-venv/bin/python js8mesh.py'` finds the gateway. Never run `pkill -f js8mesh` from a shell command: the pattern matches the command itself and kills it.
+- Start (survives the terminal/Claude session closing): `cd ~/js8mesh && setsid nohup ./run-js8mesh.sh >/dev/null 2>&1 < /dev/null &`. JS8Call should be running first, though pyjs8call will start it if not.
+- Stop: kill both by PID. `pgrep -f '^/bin/bash .*run-js8mesh\.sh$'` finds the wrapper and `pgrep -f '^/home/john/meshtastic-venv/bin/python js8mesh\.py$'` finds the gateway. Then run `bluetoothctl disconnect FD:08:0B:7B:BE:91`. Never run `pkill -f js8mesh` from a shell command: the pattern matches the command itself and kills it.
 - Test offline by importing `js8mesh`, swapping `js8mesh.js8` for a fake, calling `handle_command(...)` and reading `js8mesh.mesh_out`. This doesn't touch either radio.
 
 ## Station
