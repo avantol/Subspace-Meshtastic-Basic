@@ -1,0 +1,4 @@
+# runtime output
+js8mesh.log
+__pycache__/
+*.pyc
