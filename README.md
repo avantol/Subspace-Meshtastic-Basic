@@ -9,10 +9,9 @@ You can enter a message (like "CQ") and receive the responses drirected to you. 
 You can also get notifications directed to any group(s) you want.
 
 Here is the architecture:
+<img src="https://github.com/avantol/Subspace-Meshtastic-Basic/blob/main/WioTracker_to_Radio_chain.png">
 
-[Wio Tracker] <--LoRa--> [ROUTER] <--Bluetooth-LE--> [old laptop] <--wifi--> [Subspace] <--USB--> [Radio]
-
-If you required a more fully-featured QSO "away from the shack", chexk out the Subspace project [here](https://github.com/avantol/Subspace-Edition/releases/latest), and try the "Phone remote" feature. 
+If you require a more fully-featured QSO "away from the shack", chexk out the Subspace project [here](https://github.com/avantol/Subspace-Edition/releases/latest), and try the "Phone remote" feature. 
 Screenshots for that are at [js8ss.com](https://js8ss.com)
 
 The command summary is here: [COMMANDs.md](https://github.com/avantol/Subspace-Meshtastic-Basic/blob/main/COMMANDS.md)
