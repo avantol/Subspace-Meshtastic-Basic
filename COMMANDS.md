@@ -8,22 +8,22 @@ Commands are not case-sensitive, a leading `.` is optional, and the short form i
 | `se` | `SEND <CALL> <msg>` | Send a JS8 message as WM8Q, e.g. `se wd4kav snr?`. Replies "Queued", then "Transmitted" or "did NOT transmit". | Yes |
 | `se` | `SEND @<GROUP> <msg>` | Same, to a group, e.g. `se @allcall cq` | Yes |
 | `se` | `SEND <msg>` | No callsign given: send to the call or @group selected at the station (see `CALL`), e.g. `se snr?`. A first word that looks like a callsign (letters and a digit, like `kd8skz`) is taken as the destination; `73` is not. | Yes |
-| `cq` | `CQ` | Press the station's CQ button. Clears any selected call first. Subspace backend only. | Yes |
-| `re` | `REPLY [CALL]` | Press Reply for CALL (selecting it), or for the selected call, e.g. `re kd8skz`. Error if neither, or if a group is selected. Subspace backend only. | Yes |
-| `sn` | `SNR [CALL]` | Press SNR: send CALL (or the selected call) its signal report, e.g. `sn kd8skz`. Error if neither, or if a group is selected. Subspace backend only. | Yes |
-| `hb` | `HB` | Send a JS8 heartbeat (`@HB HEARTBEAT DN61`), then report whether it went out | Yes |
-| `in` | `INBOX` | Latest 5 JS8Call inbox messages (`*` = unread) | No |
-| `he` | `HEARD` | Up to 8 stations heard in the last hour: callsign, SNR, grid, minutes ago | No |
+| `cq` | `CQ` | Subspace CQ button: Clears any selected call first. (Subspace only) | Yes |
+| `re` | `REPLY [CALL]` | Subspace REPLY button: Send standard reply to CALL (selecting it), or for the currently-selected call, e.g. `re kd8skz`. Error if neither, or if a group is selected. (Subspace only) | Yes |
+| `sn` | `SNR [CALL]` | Subspace SNR button: Send signal report for CALL (or the currently-selected call) its signal report, e.g. `sn kd8skz`. Error if neither, or if a group is selected. (Subspace only) | Yes |
+| `hb` | `HB` | Send a heartbeat (`@HB HEARTBEAT DN61`), then report whether it went out | Yes |
+| `in` | `INBOX` | List latest 5 Inbox messages (`*` = unread) | No |
+| `he` | `HEARD` | List up to 8 stations heard in the last hour: callsign, SNR, grid, minutes ago | No |
 | `st` | `STATUS` | Dial frequency, offset, JS8 speed, last received | No |
 | `fr` | `FREQ` | Show the dial frequency and band | No |
-| `fr` | `FREQ <MHz>` | Move the IC-7300's dial, e.g. `fr 7.078`. Refuses frequencies outside the ham bands. | No |
+| `fr` | `FREQ <MHz>` | Move the radio's VFO dial, e.g. `fr 7.078`. Refuses frequencies outside the ham bands. | No |
 | `of` | `OFFSET` | Show the TX audio offset and whether auto-move is on | No |
-| `of` | `OFFSET <Hz>` | Set the offset (300–2700 Hz), e.g. `of 1500`. Turns auto-move off so it stays put. | No |
+| `of` | `OFFSET <Hz>` | Set the TX audio offset (300–2700 Hz), e.g. `of 1500`. Turns auto-move off so it stays put. | No |
 | `of` | `OFFSET AUTO` | Turn auto-move back on (local JS8Call only; not available over WiFi to Subspace) | No |
 | `gr` | `GROUPS` | Show which @groups are forwarded to you | No |
 | `gr` | `GROUPS @<G> [@<G> ...]` | Forward only these groups, e.g. `gr @magnet @allcall` (the `@` is optional) | No |
-| `gr` | `GROUPS ALL` / `GROUPS NONE` | Forward every group (the default) / no groups, only messages to WM8Q | No |
-| `ca` | `CALL` | Show the callsign (or @group) selected at the station | No |
+| `gr` | `GROUPS ALL` / `GROUPS NONE` | Forward every group / no groups (the default), only messages to WM8Q | No |
+| `ca` | `CALL` | Show the callsign (or @group) currently selected at the station | No |
 | `ca` | `CALL <CALL>` / `CALL NONE` | Select a callsign or @group, e.g. `ca kd8skz`, or clear the selection. Subspace backend only. | No |
 | `pi` | `PING` | Check the gateway is up and connected to JS8Call or Subspace | No |
 | `h` / `?` | `HELP` | List the commands | No |
