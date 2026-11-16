@@ -14,9 +14,9 @@ You can also get notifications directed to any group(s) you want.
 
 Here is the architecture:
 <img src="https://github.com/avantol/Subspace-Meshtastic-Basic/blob/main/WioTracker_to_Radio_chain.png">
-The "old laptop" is the gateway, running the code from this repo. The test laptop was an ancient low-spec ASUS T100T with 2GB memory, running a recent Linux Mint. Anything that has a "Bluetooth Low Energy" (a.k.a "Bluetooth 4.0") module will do.
+The "old laptop" is actually a gateway, running the code in this repo. The test laptop was an ancient low-spec ASUS T100T with 2GB memory, running a recent Linux Mint. Anything that has a "Bluetooth Low Energy" (a.k.a "Bluetooth 4.0") module will do.
 
-If you require a more fully-featured QSO "away from the shack", chexk out the Subspace project [here](https://github.com/avantol/Subspace-Edition/releases/latest), and try the "Phone remote" feature. 
+If you require a more fully-featured QSO "away from the shack", check out the Subspace project [here](https://github.com/avantol/Subspace-Edition/releases/latest), and try the "Phone remote" feature. 
 Screenshots for that are at [js8ss.com](https://js8ss.com)
 
 The command summary is here: [COMMANDs.md](https://github.com/avantol/Subspace-Meshtastic-Basic/blob/main/COMMANDS.md)
