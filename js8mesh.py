@@ -6,8 +6,10 @@ Bluetooth (via the meshtastic library). From an allowed Meshtastic node, send a 
 message (DM) to the gateway node with one of these commands:
 
     SEND [CALL or @GROUP] <message>   transmit a JS8 directed message as your callsign
-                                      (no CALL: to the call or @group selected at the station;
-                                      a message starting with CQ is sent undirected)
+                                      (no CALL: to the call or @group selected at the station)
+    CQ                                press the station's CQ button (clears any selected call)
+    REPLY [CALL]                      press Reply for CALL, or for the selected call
+    SNR [CALL]                        press SNR (send the SNR report) for CALL or the selected call
     INBOX                             list the latest JS8Call inbox messages
     HEARD                             stations heard in the last hour
     STATUS                            dial, offset, speed, last RX
@@ -63,7 +65,7 @@ SUBSPACE_RELOGIN_SECONDS = 120        # after the phone logs in (ending our sess
 
 # Short forms: first two letters of each command. HE is HEARD; HELP is H or ?.
 ALIASES = {"SE": "SEND", "IN": "INBOX", "HE": "HEARD", "ST": "STATUS", "FR": "FREQ",
-           "OF": "OFFSET", "PI": "PING", "GR": "GROUPS", "CA": "CALL", "H": "HELP"}
+           "OF": "OFFSET", "PI": "PING", "GR": "GROUPS", "CA": "CALL", "RE": "REPLY", "SN": "SNR", "H": "HELP"}
 OFFSET_MIN, OFFSET_MAX = 300, 2700    # audio offset range OFFSET accepts (Hz)
 
 GROUP_RE = re.compile(r"^@[A-Z0-9]{1,8}$")
@@ -210,7 +212,7 @@ def handle_command(sender, text):
     if cmd in ("HELP", "?"):
         mesh_send(sender, "JS8 gateway (short forms in caps, leading . optional): "
                           "SEnd [CALL|@GROUP] <msg> | INbox | HEard | STatus | FReq [MHz] | "
-                          "OFfset [Hz|AUTO] | GRoups [@G ..|ALL|NONE] | CAll [CALL|NONE] | "
+                          "OFfset [Hz|AUTO] | GRoups [@G ..|ALL|NONE] | CAll [CALL|NONE] | CQ | REply [CALL] | SNr [CALL] | "
                           "HB | PIng | H/?")
 
     elif cmd == "PING":
@@ -220,18 +222,6 @@ def handle_command(sender, text):
 
     elif cmd == "SEND":
         usage = "Usage: SEND [CALL|@GROUP] <message> (no CALL: the selected call, see CA)"
-        if len(words) >= 2 and words[1].upper() == "CQ":
-            # a CQ is addressed to no one: send it undirected, whatever is selected
-            body = text.split(None, 1)[1].upper()
-            try:
-                msg = js8.send_message(body)
-                log("JS8 TX queued (undirected):", repr(body))
-                mesh_send(sender, f"Queued for JS8 TX: {body}{tx_off_warning()}")
-                report_tx(sender, msg, body)
-            except Exception as e:  # noqa: BLE001
-                log("JS8 TX failed:", e)
-                mesh_send(sender, f"JS8 send failed: {e}")
-            return
         if len(words) >= 3 and is_call(words[1].upper()):
             dest, body = words[1].upper(), words[2].upper()
         elif len(words) == 2 and is_call(words[1].upper()):
@@ -403,6 +393,49 @@ def handle_command(sender, text):
             mesh_send(sender, f"Selected call: {got}" if got else "No call selected.")
         except Exception as e:  # noqa: BLE001
             mesh_send(sender, f"CALL failed: {e}")
+
+    elif cmd in ("CQ", "REPLY", "SNR"):
+        if not hasattr(js8, "press"):
+            mesh_send(sender, f"{cmd} needs the Subspace backend; local JS8Call's API can't press buttons.")
+            return
+        try:
+            if cmd == "CQ":
+                # CQ goes to no one: clear any selection first
+                if js8.get_selected_call():
+                    js8.set_selected_call("")
+                    log("JS8 selected call cleared for CQ")
+                msg = js8.press("cq", "CQ")
+                label = "CQ"
+            else:
+                if len(words) >= 2:
+                    call = words[1].upper()
+                    if not is_call(call) or call.startswith("@"):
+                        mesh_send(sender, f"'{call}' doesn't look like a callsign.")
+                        return
+                    js8.set_selected_call(call)
+                    for _ in range(4):   # the selection can show a moment after the reply
+                        if (js8.get_selected_call() or "").upper() == call:
+                            break
+                        time.sleep(0.5)
+                    else:
+                        mesh_send(sender, f"The station didn't select {call}; {cmd} not pressed.")
+                        return
+                else:
+                    call = (js8.get_selected_call() or "").upper()
+                    if not call:
+                        mesh_send(sender, f"No call selected. Usage: {cmd} <CALL>, or select one with CA.")
+                        return
+                if call.startswith("@"):
+                    mesh_send(sender, f"{cmd} needs a station, not a group ({call} is selected).")
+                    return
+                msg = js8.press(cmd.lower(), f"{call} SNR" if cmd == "SNR" else call)
+                label = f"{cmd} to {call}"
+            log("JS8 button pressed:", label)
+            mesh_send(sender, f"{label} pressed.{tx_off_warning()}")
+            report_tx(sender, msg, label)
+        except Exception as e:  # noqa: BLE001
+            log(f"JS8 {cmd} failed:", e)
+            mesh_send(sender, f"{cmd} failed: {e}")
 
     elif cmd == "HB":
         try:

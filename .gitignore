@@ -2,3 +2,6 @@
 js8mesh.log
 __pycache__/
 *.pyc
+
+# local notes for Claude Code (station details); not published
+CLAUDE.md

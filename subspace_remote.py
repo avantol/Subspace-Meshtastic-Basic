@@ -203,15 +203,21 @@ class SubspaceJS8:
         msg.composed = p.get("COMPOSED", "")
         return msg
 
-    def send_message(self, text):
-        """Undirected text (e.g. a CQ). Subspace sends no reply unless it refuses."""
-        msg = SimpleNamespace(status=STATUS_QUEUED, composed=text, error="")
+    def press(self, action, expect_text):
+        """Press a station button via UI.ACTION (as the phone remote does).
+        expect_text: how the transmission it causes will start, for TX tracking."""
+        msg = SimpleNamespace(status=STATUS_QUEUED, composed=expect_text, error="")
         self._pending.append(msg)
         try:
-            self.request("TX.SEND_MESSAGE", value=text, params={"PRIORITY": "NORMAL"}, expect_reply=False)
+            p = self.request("UI.ACTION", value=action).get("params", {})
         except Exception:
             self._pending.remove(msg)
             raise
+        if not p.get("OK"):
+            self._pending.remove(msg)
+            reason = p.get("REASON") or "?"
+            raise RemoteError({"disabled": "the button is unavailable now",
+                               "queued": "a message is already waiting to send"}.get(reason, reason))
         return msg
 
     def send_directed_message(self, dest, text):

@@ -8,7 +8,9 @@ Commands are not case-sensitive, a leading `.` is optional, and the short form i
 | `se` | `SEND <CALL> <msg>` | Send a JS8 message as WM8Q, e.g. `se wd4kav snr?`. Replies "Queued", then "Transmitted" or "did NOT transmit". | Yes |
 | `se` | `SEND @<GROUP> <msg>` | Same, to a group, e.g. `se @allcall cq` | Yes |
 | `se` | `SEND <msg>` | No callsign given: send to the call or @group selected at the station (see `CALL`), e.g. `se snr?`. A first word that looks like a callsign (letters and a digit, like `kd8skz`) is taken as the destination; `73` is not. | Yes |
-| `se` | `SEND CQ ...` | A message starting with `CQ` goes out undirected, never to a selected call, e.g. `se cq cq cq dn61` | Yes |
+| `cq` | `CQ` | Press the station's CQ button. Clears any selected call first. Subspace backend only. | Yes |
+| `re` | `REPLY [CALL]` | Press Reply for CALL (selecting it), or for the selected call, e.g. `re kd8skz`. Error if neither, or if a group is selected. Subspace backend only. | Yes |
+| `sn` | `SNR [CALL]` | Press SNR: send CALL (or the selected call) its signal report, e.g. `sn kd8skz`. Error if neither, or if a group is selected. Subspace backend only. | Yes |
 | `hb` | `HB` | Send a JS8 heartbeat (`@HB HEARTBEAT DN61`), then report whether it went out | Yes |
 | `in` | `INBOX` | Latest 5 JS8Call inbox messages (`*` = unread) | No |
 | `he` | `HEARD` | Up to 8 stations heard in the last hour: callsign, SNR, grid, minutes ago | No |
@@ -23,13 +25,14 @@ Commands are not case-sensitive, a leading `.` is optional, and the short form i
 | `gr` | `GROUPS ALL` / `GROUPS NONE` | Forward every group (the default) / no groups, only messages to WM8Q | No |
 | `ca` | `CALL` | Show the callsign (or @group) selected at the station | No |
 | `ca` | `CALL <CALL>` / `CALL NONE` | Select a callsign or @group, e.g. `ca kd8skz`, or clear the selection. Subspace backend only. | No |
-| `pi` | `PING` | Check the gateway is up and connected to JS8Call | No |
+| `pi` | `PING` | Check the gateway is up and connected to JS8Call or Subspace | No |
 | `h` / `?` | `HELP` | List the commands | No |
 
 ## Notes
 
 - **Automatic forwarding:** JS8 messages addressed to WM8Q, or to an @group chosen with `GROUPS`, are DMed to you without asking. Heartbeats (`@HB`) are always skipped, and repeats within 10 minutes are dropped.
 - **Auto-move:** when on, the offset shifts by itself (within 1000–2500 Hz) if another station is on your frequency. It comes back on whenever the gateway restarts.
+- **CQ, REPLY, SNR** press the station's own buttons, so they send what those buttons are set to send there. They need the Subspace backend.
 - **Over WiFi (Subspace backend):** the same commands work. Auto-move is always off. `SEND` and `HB` add a warning if TX is switched off at the station. Logging in from the Subspace phone remote logs the gateway out, and the gateway logs back in (logging the phone out) 2 minutes later.
 - **Group choice is saved** in `~/.config/js8mesh/forward-groups.json`, so it survives restarts.
 - **Other nodes:** commands from nodes not on the allowed list are ignored.
