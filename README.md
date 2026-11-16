@@ -9,4 +9,4 @@ You can also get notifications directed to any group(s) you want.
 If you required a more fully-featured QSO "away from the shack", chexk out the Subspace project here, and try the "Phone remote" feature. 
 Screenshots for that are at [js8ss.com](https://js8ss.com)
 
-The command summary is here: COMMANDs.md
+The command summary is here: [COMMANDs.md](https://github.com/avantol/Subspace-Meshtastic-Basic/blob/main/COMMANDS.md)
