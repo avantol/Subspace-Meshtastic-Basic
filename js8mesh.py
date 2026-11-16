@@ -5,18 +5,21 @@ Runs on this PC, connected to JS8Call (via pyjs8call) and to a Meshtastic node o
 Bluetooth (via the meshtastic library). From an allowed Meshtastic node, send a direct
 message (DM) to the gateway node with one of these commands:
 
-    SEND <CALL or @GROUP> <message>   transmit a JS8 directed message as your callsign
+    SEND [CALL or @GROUP] <message>   transmit a JS8 directed message as your callsign
+                                      (no CALL: to the call or @group selected at the station)
     INBOX                             list the latest JS8Call inbox messages
     HEARD                             stations heard in the last hour
     STATUS                            dial, offset, speed, last RX
     FREQ [MHz]                        show, or set, the radio's dial frequency
     OFFSET [Hz|AUTO]                  show or set the TX audio offset (setting turns auto-move off)
     HB                                transmit a JS8 heartbeat
+    CALL [CALL|NONE]                  show, or set (Subspace only), the selected callsign
+    GROUPS [@G ...|ALL|NONE]          show or set which @groups are forwarded to the mesh
     PING                              check the gateway is up
     HELP                              list commands
 
-Received JS8 messages addressed to your callsign or to an @group (except @HB heartbeats)
-are DMed to every allowed node.
+Received JS8 messages addressed to your callsign or to a forwarded @group (see GROUPS;
+@HB heartbeats never) are DMed to every allowed node.
 
 JS8 backend (JS8_BACKEND below, or the JS8MESH_BACKEND environment variable):
   "local"     JS8Call on this PC (radio on local USB), through pyjs8call.
@@ -27,6 +30,7 @@ Run with ~/meshtastic-venv/bin/python, or use run-js8mesh.sh, which restarts the
 gateway if the Bluetooth link drops.
 """
 import atexit
+import json
 import os
 import queue
 import re
@@ -51,15 +55,17 @@ TX_REPORT_SECONDS = 300               # how long to wait for JS8Call to transmit
 JS8_BACKEND = os.environ.get("JS8MESH_BACKEND", "local")   # "local" or "subspace" (see above)
 SUBSPACE_URL = "http://10.21.1.202:2443"   # Subspace phone-remote server on the home WiFi
 SUBSPACE_PASSCODE_FILE = os.path.expanduser("~/.config/js8mesh/subspace-passcode")
+GROUPS_FILE = os.path.expanduser("~/.config/js8mesh/forward-groups.json")  # set by the GROUPS command
 SUBSPACE_RELOGIN_SECONDS = 120        # after the phone logs in (ending our session), wait this long
                                       # before logging back in (which logs the phone out)
 # ---------------------------------------------------------------------------
 
 # Short forms: first two letters of each command. HE is HEARD; HELP is H or ?.
 ALIASES = {"SE": "SEND", "IN": "INBOX", "HE": "HEARD", "ST": "STATUS", "FR": "FREQ",
-           "OF": "OFFSET", "PI": "PING", "H": "HELP"}
+           "OF": "OFFSET", "PI": "PING", "GR": "GROUPS", "CA": "CALL", "H": "HELP"}
 OFFSET_MIN, OFFSET_MAX = 300, 2700    # audio offset range OFFSET accepts (Hz)
 
+GROUP_RE = re.compile(r"^@[A-Z0-9]{1,8}$")
 CALL_RE = re.compile(r"^(@[A-Z0-9]{1,8}|[A-Z0-9]{1,3}[0-9][A-Z0-9]{0,3}(/[A-Z0-9]{1,4})?)$")
 
 mesh_out = queue.Queue()              # (destination node id, text)
@@ -70,6 +76,39 @@ mesh = None
 
 def log(*args):
     print(time.strftime("%Y-%m-%d %H:%M:%S"), *args, flush=True)
+
+
+# ---- forwarded groups ---------------------------------------------------------
+def load_groups():
+    """The @groups to forward, or None for all groups."""
+    try:
+        with open(GROUPS_FILE) as f:
+            groups = json.load(f)
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError) as e:
+        log("Can't read", GROUPS_FILE, "- forwarding all groups:", e)
+        return None
+    return None if groups is None else set(groups)
+
+
+def save_groups(groups):
+    os.makedirs(os.path.dirname(GROUPS_FILE), exist_ok=True)
+    tmp = GROUPS_FILE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(None if groups is None else sorted(groups), f)
+    os.replace(tmp, GROUPS_FILE)
+
+
+def describe_groups(groups):
+    if groups is None:
+        return "Forwarding all @groups (not @HB)."
+    if not groups:
+        return "Forwarding no @groups (only messages to you)."
+    return "Forwarding @groups: " + " ".join(sorted(groups))
+
+
+forward_groups = load_groups()
 
 
 # ---- Meshtastic side --------------------------------------------------------
@@ -146,6 +185,11 @@ def report_tx(sender, msg, label):
     threading.Thread(target=watch, daemon=True).start()
 
 
+def is_call(word):
+    """A callsign or @group. A callsign needs a letter, so "73" is message text."""
+    return bool(CALL_RE.match(word)) and (word.startswith("@") or any(c.isalpha() for c in word))
+
+
 def tx_off_warning():
     """For the Subspace backend: a note if the station's TX button is off."""
     try:
@@ -157,14 +201,15 @@ def tx_off_warning():
 
 
 def handle_command(sender, text):
+    global forward_groups
     words = text.split(None, 2)
     cmd = words[0].upper().lstrip(".") if words else ""   # a leading "." is optional
     cmd = ALIASES.get(cmd, cmd)
 
     if cmd in ("HELP", "?"):
         mesh_send(sender, "JS8 gateway (short forms in caps, leading . optional): "
-                          "SEnd <CALL|@GROUP> <msg> | INbox | HEard | STatus | FReq [MHz] | "
-                          "OFfset [Hz|AUTO] | "
+                          "SEnd [CALL|@GROUP] <msg> | INbox | HEard | STatus | FReq [MHz] | "
+                          "OFfset [Hz|AUTO] | GRoups [@G ..|ALL|NONE] | CAll [CALL|NONE] | "
                           "HB | PIng | H/?")
 
     elif cmd == "PING":
@@ -173,12 +218,28 @@ def handle_command(sender, text):
         mesh_send(sender, f"Gateway up. {where} {state} as {js8.settings.get_station_callsign()}.")
 
     elif cmd == "SEND":
-        if len(words) < 3:
-            mesh_send(sender, "Usage: SEND <CALL|@GROUP> <message>")
+        usage = "Usage: SEND [CALL|@GROUP] <message> (no CALL: the selected call, see CA)"
+        if len(words) >= 3 and is_call(words[1].upper()):
+            dest, body = words[1].upper(), words[2].upper()
+        elif len(words) == 2 and is_call(words[1].upper()):
+            mesh_send(sender, f"No message for {words[1].upper()}. " + usage)
             return
-        dest, body = words[1].upper(), words[2].upper()
-        if not CALL_RE.match(dest):
-            mesh_send(sender, f"'{dest}' doesn't look like a callsign or @group.")
+        elif len(words) >= 2:
+            # no destination given: send to the call or @group selected at the station
+            body = text.split(None, 1)[1].upper()
+            try:
+                dest = (js8.get_selected_call() or "").upper()
+            except Exception as e:  # noqa: BLE001
+                mesh_send(sender, f"Couldn't read the selected call: {e}")
+                return
+            if not dest:
+                mesh_send(sender, "No call selected. " + usage)
+                return
+            if not is_call(dest):
+                mesh_send(sender, f"Selected call '{dest}' doesn't look like a callsign or @group.")
+                return
+        else:
+            mesh_send(sender, usage)
             return
         try:
             msg = js8.send_directed_message(dest, body)
@@ -274,6 +335,54 @@ def handle_command(sender, text):
         mesh_send(sender, f"{js8.settings.get_station_callsign()} dial {hz / 1e6:.3f} MHz "
                           f"offset {offset} Hz, speed {speed}, last RX {last}")
 
+    elif cmd == "GROUPS":
+        args = [a.upper() for a in text.split()[1:]]
+        if args == ["ALL"]:
+            new = None
+        elif args == ["NONE"]:
+            new = set()
+        elif args:
+            new = {a if a.startswith("@") else "@" + a for a in args}
+            bad = [g for g in sorted(new) if not GROUP_RE.match(g) or g == "@HB"]
+            if bad:
+                mesh_send(sender, f"Not a group name: {' '.join(bad)}. Usage: GR | GR @G1 @G2 | GR ALL | GR NONE")
+                return
+        else:
+            mesh_send(sender, describe_groups(forward_groups))
+            return
+        forward_groups = new
+        try:
+            save_groups(new)
+        except OSError as e:
+            log("Saving groups failed:", e)
+            mesh_send(sender, f"{describe_groups(new)} (NOT saved; lost on restart: {e})")
+            return
+        log("Forward groups set:", describe_groups(new))
+        mesh_send(sender, describe_groups(new))
+
+    elif cmd == "CALL":
+        try:
+            if len(words) >= 2:
+                if not hasattr(js8, "set_selected_call"):
+                    mesh_send(sender, "Selecting a call needs the Subspace backend; "
+                                      "local JS8Call's API can't do it.")
+                    return
+                want = words[1].upper()
+                if want in ("NONE", "-"):
+                    want = ""
+                elif not CALL_RE.match(want):
+                    mesh_send(sender, f"'{want}' doesn't look like a callsign or @group.")
+                    return
+                got = js8.set_selected_call(want)
+                log("JS8 selected call set:", want or "(none)", "->", got)
+                if want and (got or "").upper() != want:
+                    mesh_send(sender, f"Station didn't select {want}; selected: {got or 'none'}")
+                    return
+            got = js8.get_selected_call()
+            mesh_send(sender, f"Selected call: {got}" if got else "No call selected.")
+        except Exception as e:  # noqa: BLE001
+            mesh_send(sender, f"CALL failed: {e}")
+
     elif cmd == "HB":
         try:
             msg = js8.send_heartbeat()
@@ -291,7 +400,9 @@ def handle_command(sender, text):
 def on_js8_directed(msg):
     dest = str(msg.destination or "").upper()
     mycall = js8.settings.get_station_callsign().upper()
-    if not (dest == mycall or (dest.startswith("@") and dest != "@HB")):
+    group_ok = (dest.startswith("@") and dest != "@HB"
+                and (forward_groups is None or dest in forward_groups))
+    if not (dest == mycall or group_ok):
         return
     # drop JS8's end-of-message mark (often garbled into non-ASCII bytes) and trailing junk
     text = re.sub(r"[^\x20-\x7e]+", " ", msg.text or msg.value or "").strip()

@@ -224,6 +224,13 @@ class SubspaceJS8:
                         "unread": kind == "unread"})
         return [m for m in out if m["unread"]] if unread else out
 
+    def get_selected_call(self):
+        return self.request("RX.GET_CALL_SELECTED").get("value") or None
+
+    def set_selected_call(self, call):
+        """Select a callsign ("" deselects); returns the selection that resulted."""
+        return self.request("RX.SET_CALL_SELECTED", value=call).get("value") or None
+
     def tx_debug(self):
         return "queued here: " + ", ".join(f"{m.composed!r} {m.status}" for m in self._pending)
 
