@@ -5,12 +5,14 @@ A Python gateway that lets an allowed Meshtastic node use JS8Call over DMs: send
 ## Files
 
 - `js8mesh.py`: the gateway. Settings (node name, allowed nodes, limits) are constants at the top.
+- `subspace_remote.py`: the "subspace" JS8 backend. It talks to a Subspace Edition station over WiFi through its phone-remote server (`http://10.21.1.202:2443`, the same JSON API as JS8Call's TCP API: POST `/login`, POST `/api`, GET `/events`). It mimics the small part of pyjs8call's Client that the gateway uses. The server source is `JS8_Network/RemoteServer.cpp` in avantol/Subspace-Edition, cloned at `~/Subspace-Edition`.
 - `run-js8mesh.sh`: wrapper that restarts the gateway when it exits. It logs to `js8mesh.log` (gitignored).
 
 ## Running
 
 - Python environment: `~/meshtastic-venv` (meshtastic 2.7.11, pyjs8call 0.2.3). Run with `~/meshtastic-venv/bin/python`, not the system python.
 - Start (survives the terminal/Claude session closing): `cd ~/js8mesh && setsid nohup ./run-js8mesh.sh >/dev/null 2>&1 < /dev/null &`. JS8Call should be running first, though pyjs8call will start it if not.
+- JS8 backend: `JS8_BACKEND` in `js8mesh.py`, or the env var `JS8MESH_BACKEND=local|subspace` (default local). Use subspace when the gateway PC has to sit near Rpt1 (for BLE), out of USB reach of the radio. To start with it, put `JS8MESH_BACKEND=subspace` in front of `setsid` in the start command. The Subspace pass code is in `~/.config/js8mesh/subspace-passcode` (mode 600, not in git).
 - Stop: kill both by PID. `pgrep -f '^/bin/bash .*run-js8mesh\.sh$'` finds the wrapper and `pgrep -f '^/home/john/meshtastic-venv/bin/python js8mesh\.py$'` finds the gateway. Then run `bluetoothctl disconnect FD:08:0B:7B:BE:91`. Never run `pkill -f js8mesh` from a shell command: the pattern matches the command itself and kills it.
 - Test offline by importing `js8mesh`, swapping `js8mesh.js8` for a fake, calling `handle_command(...)` and reading `js8mesh.mesh_out`. This doesn't touch either radio.
 
@@ -27,6 +29,7 @@ A Python gateway that lets an allowed Meshtastic node use JS8Call over DMs: send
 - **pyjs8call auto-offset** (OffsetMonitor) moves the TX offset by itself within 1000–2500 Hz. It is re-enabled on every start.
 - **Bluetooth to Rpt1 is marginal** (about −70 to −95 dBm). Connect by name `Rpt1_be91`, not by address, which timed out. A stale BLE connection left by a killed gateway stops Rpt1 from advertising, so the wrapper runs `bluetoothctl disconnect` before each start. The Meshtastic CLI over BLE often fails once before it works, and hangs on exit after success, so run it under `timeout`.
 - **JS8 end-of-message mark** (♢) arrives garbled as `â\x99`. The gateway strips non-ASCII from forwarded text.
+- **Subspace remote allows one session.** A new login ends the old one, so the user's phone and the gateway log each other out. After losing its session, the gateway waits `SUBSPACE_RELOGIN_SECONDS` (120) before logging back in. Five wrong pass codes lock logins for 60 s. Auto-offset (pyjs8call's OffsetMonitor) doesn't exist on this backend.
 - **apt is blocked** because JS8Call is half-installed: it needs `wsjtx-data`, which clashes with the user's FT8-GO package over `wsjtx_icon.png`. Install packages with `apt-get download` and `sudo dpkg -i`, after checking for file conflicts.
 - **Low-RAM PC** (1.8 GB). Use `nice -n 19`, single-job builds.
 

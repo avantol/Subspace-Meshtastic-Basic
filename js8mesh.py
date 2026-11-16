@@ -18,6 +18,11 @@ message (DM) to the gateway node with one of these commands:
 Received JS8 messages addressed to your callsign or to an @group (except @HB heartbeats)
 are DMed to every allowed node.
 
+JS8 backend (JS8_BACKEND below, or the JS8MESH_BACKEND environment variable):
+  "local"     JS8Call on this PC (radio on local USB), through pyjs8call.
+  "subspace"  a Subspace Edition station elsewhere on the WiFi, through its phone-remote
+              server (subspace_remote.py). Its pass code is read from SUBSPACE_PASSCODE_FILE.
+
 Run with ~/meshtastic-venv/bin/python, or use run-js8mesh.sh, which restarts the
 gateway if the Bluetooth link drops.
 """
@@ -29,6 +34,7 @@ import threading
 import time
 
 import pyjs8call
+import subspace_remote
 from pubsub import pub
 from meshtastic.ble_interface import BLEInterface
 
@@ -42,6 +48,11 @@ DEDUPE_SECONDS = 600                  # ignore a repeat of the same JS8 message 
 HEARD_SECONDS = 3600                  # HEARD lists stations heard within this time
 HEARD_COUNT = 8                       # ...up to this many, most recent first
 TX_REPORT_SECONDS = 300               # how long to wait for JS8Call to transmit before reporting
+JS8_BACKEND = os.environ.get("JS8MESH_BACKEND", "local")   # "local" or "subspace" (see above)
+SUBSPACE_URL = "http://10.21.1.202:2443"   # Subspace phone-remote server on the home WiFi
+SUBSPACE_PASSCODE_FILE = os.path.expanduser("~/.config/js8mesh/subspace-passcode")
+SUBSPACE_RELOGIN_SECONDS = 120        # after the phone logs in (ending our session), wait this long
+                                      # before logging back in (which logs the phone out)
 # ---------------------------------------------------------------------------
 
 # Short forms: first two letters of each command. HE is HEARD; HELP is H or ?.
@@ -106,6 +117,13 @@ def on_mesh_lost(interface):
 
 
 # ---- commands ---------------------------------------------------------------
+def js8_tx_debug():
+    if hasattr(js8, "tx_debug"):
+        return js8.tx_debug()
+    return (f"pyjs8call queue {len(js8.js8call._tx_queue)}, "
+            f"tx box {js8.js8call.get_state('tx_text')!r}")
+
+
 def report_tx(sender, msg, label):
     """Follow a queued JS8 message and tell the sender whether it was transmitted."""
     def watch():
@@ -114,8 +132,7 @@ def report_tx(sender, msg, label):
         while time.time() < end:
             status = getattr(msg, "status", None)
             if status != last:
-                log(f"JS8 TX status [{label}]: {status} | pyjs8call queue "
-                    f"{len(js8.js8call._tx_queue)}, tx box {js8.js8call.get_state('tx_text')!r}")
+                log(f"JS8 TX status [{label}]: {status} | {js8_tx_debug()}")
                 last = status
             if status == pyjs8call.Message.STATUS_SENT:
                 mesh_send(sender, f"Transmitted on JS8: {label}")
@@ -127,6 +144,16 @@ def report_tx(sender, msg, label):
         mesh_send(sender, f"JS8 hasn't transmitted after {TX_REPORT_SECONDS // 60} min "
                           f"(status {last}): {label}")
     threading.Thread(target=watch, daemon=True).start()
+
+
+def tx_off_warning():
+    """For the Subspace backend: a note if the station's TX button is off."""
+    try:
+        if hasattr(js8, "tx_enabled") and not js8.tx_enabled():
+            return " WARNING: TX is OFF at the station."
+    except Exception:  # noqa: BLE001
+        pass
+    return ""
 
 
 def handle_command(sender, text):
@@ -142,7 +169,8 @@ def handle_command(sender, text):
 
     elif cmd == "PING":
         state = "connected" if js8.connected() else "NOT connected"
-        mesh_send(sender, f"Gateway up. JS8Call {state} as {js8.settings.get_station_callsign()}.")
+        where = "Subspace (WiFi)" if JS8_BACKEND == "subspace" else "JS8Call"
+        mesh_send(sender, f"Gateway up. {where} {state} as {js8.settings.get_station_callsign()}.")
 
     elif cmd == "SEND":
         if len(words) < 3:
@@ -155,7 +183,7 @@ def handle_command(sender, text):
         try:
             msg = js8.send_directed_message(dest, body)
             log("JS8 TX queued:", dest, repr(body))
-            mesh_send(sender, f"Queued for JS8 TX: {dest} {body}")
+            mesh_send(sender, f"Queued for JS8 TX: {dest} {body}{tx_off_warning()}")
             report_tx(sender, msg, f"{dest} {body}")
         except Exception as e:  # noqa: BLE001
             log("JS8 TX failed:", e)
@@ -250,7 +278,7 @@ def handle_command(sender, text):
         try:
             msg = js8.send_heartbeat()
             log("JS8 heartbeat queued")
-            mesh_send(sender, "Heartbeat queued for JS8 TX.")
+            mesh_send(sender, f"Heartbeat queued for JS8 TX.{tx_off_warning()}")
             report_tx(sender, msg, "heartbeat")
         except Exception as e:  # noqa: BLE001
             mesh_send(sender, f"HB failed: {e}")
@@ -281,9 +309,21 @@ def on_js8_directed(msg):
         mesh_send(node, line)
 
 
-def main():
-    global js8, mesh
+def start_subspace():
+    global js8   # set before connecting: events can arrive during start()
+    with open(SUBSPACE_PASSCODE_FILE) as f:
+        passcode = f.read().strip()
+    js8 = client = subspace_remote.SubspaceJS8(SUBSPACE_URL, passcode,
+                                               relogin_seconds=SUBSPACE_RELOGIN_SECONDS)
+    client.register_directed(on_js8_directed)
+    log("Connecting to Subspace at", SUBSPACE_URL, "over WiFi...")
+    client.start()
+    log("Subspace connected as", client.callsign)
+    return client
 
+
+def start_local():
+    global js8   # set before connecting: events can arrive during start()
     js8 = pyjs8call.Client()
     # Never let pyjs8call rewrite ~/.config/JS8Call.ini: writing it while JS8Call runs
     # emptied the file once (2026-11-15). The TCP API settings it wants are already set.
@@ -296,6 +336,20 @@ def main():
     js8.start()
     js8.js8call.enable_logging()   # API traffic to ~/pyjs8call.log, for diagnosing TX problems
     log("JS8Call connected as", js8.settings.get_station_callsign())
+    return js8
+
+
+def main():
+    global js8, mesh
+
+    if JS8_BACKEND == "subspace":
+        try:
+            js8 = start_subspace()
+        except Exception as e:  # noqa: BLE001
+            log("Subspace connection failed:", e)
+            os._exit(1)
+    else:
+        js8 = start_local()
 
     pub.subscribe(on_mesh_text, "meshtastic.receive.text")
     pub.subscribe(on_mesh_lost, "meshtastic.connection.lost")
