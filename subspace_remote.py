@@ -203,6 +203,17 @@ class SubspaceJS8:
         msg.composed = p.get("COMPOSED", "")
         return msg
 
+    def send_message(self, text):
+        """Undirected text (e.g. a CQ). Subspace sends no reply unless it refuses."""
+        msg = SimpleNamespace(status=STATUS_QUEUED, composed=text, error="")
+        self._pending.append(msg)
+        try:
+            self.request("TX.SEND_MESSAGE", value=text, params={"PRIORITY": "NORMAL"}, expect_reply=False)
+        except Exception:
+            self._pending.remove(msg)
+            raise
+        return msg
+
     def send_directed_message(self, dest, text):
         return self._queue(dest, text)
 
@@ -262,6 +273,12 @@ class SubspaceJS8:
             self._events_up = False
             time.sleep(10)
 
+    def _bare(self, text):
+        text = (text or "").strip()
+        if self.callsign and text.upper().startswith(self.callsign + ":"):
+            text = text[len(self.callsign) + 1:]
+        return _norm(text)
+
     def _on_event(self, ev):
         t, p = ev.get("type"), ev.get("params") or {}
         if t == "RX.DIRECTED":
@@ -281,9 +298,13 @@ class SubspaceJS8:
                     m.status = STATUS_SENDING
                 break
         elif t == "TX.COMPLETE":
-            sent = _norm(ev.get("value"))
+            # The sent text may lack our "CALL:" prefix and may gain extras
+            # (e.g. "@G SNR" goes out as "@G SNR -31"), so compare without the
+            # prefix, and let either text start the other.
+            sent = self._bare(ev.get("value"))
             match = next((m for m in self._pending if sent and m.composed and
-                          (_norm(m.composed) in sent or sent in _norm(m.composed))), None)
+                          (sent.startswith(self._bare(m.composed)) or
+                           self._bare(m.composed).startswith(sent))), None)
             if match is None:
                 _log("Subspace: TX.COMPLETE for something not sent by the gateway:", repr(ev.get("value")))
                 return

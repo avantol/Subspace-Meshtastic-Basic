@@ -8,6 +8,7 @@ Commands are not case-sensitive, a leading `.` is optional, and the short form i
 | `se` | `SEND <CALL> <msg>` | Send a JS8 message as WM8Q, e.g. `se wd4kav snr?`. Replies "Queued", then "Transmitted" or "did NOT transmit". | Yes |
 | `se` | `SEND @<GROUP> <msg>` | Same, to a group, e.g. `se @allcall cq` | Yes |
 | `se` | `SEND <msg>` | No callsign given: send to the call or @group selected at the station (see `CALL`), e.g. `se snr?`. A first word that looks like a callsign (letters and a digit, like `kd8skz`) is taken as the destination; `73` is not. | Yes |
+| `se` | `SEND CQ ...` | A message starting with `CQ` goes out undirected, never to a selected call, e.g. `se cq cq cq dn61` | Yes |
 | `hb` | `HB` | Send a JS8 heartbeat (`@HB HEARTBEAT DN61`), then report whether it went out | Yes |
 | `in` | `INBOX` | Latest 5 JS8Call inbox messages (`*` = unread) | No |
 | `he` | `HEARD` | Up to 8 stations heard in the last hour: callsign, SNR, grid, minutes ago | No |

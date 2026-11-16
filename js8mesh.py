@@ -6,7 +6,8 @@ Bluetooth (via the meshtastic library). From an allowed Meshtastic node, send a 
 message (DM) to the gateway node with one of these commands:
 
     SEND [CALL or @GROUP] <message>   transmit a JS8 directed message as your callsign
-                                      (no CALL: to the call or @group selected at the station)
+                                      (no CALL: to the call or @group selected at the station;
+                                      a message starting with CQ is sent undirected)
     INBOX                             list the latest JS8Call inbox messages
     HEARD                             stations heard in the last hour
     STATUS                            dial, offset, speed, last RX
@@ -219,6 +220,18 @@ def handle_command(sender, text):
 
     elif cmd == "SEND":
         usage = "Usage: SEND [CALL|@GROUP] <message> (no CALL: the selected call, see CA)"
+        if len(words) >= 2 and words[1].upper() == "CQ":
+            # a CQ is addressed to no one: send it undirected, whatever is selected
+            body = text.split(None, 1)[1].upper()
+            try:
+                msg = js8.send_message(body)
+                log("JS8 TX queued (undirected):", repr(body))
+                mesh_send(sender, f"Queued for JS8 TX: {body}{tx_off_warning()}")
+                report_tx(sender, msg, body)
+            except Exception as e:  # noqa: BLE001
+                log("JS8 TX failed:", e)
+                mesh_send(sender, f"JS8 send failed: {e}")
+            return
         if len(words) >= 3 and is_call(words[1].upper()):
             dest, body = words[1].upper(), words[2].upper()
         elif len(words) == 2 and is_call(words[1].upper()):
@@ -374,9 +387,17 @@ def handle_command(sender, text):
                     mesh_send(sender, f"'{want}' doesn't look like a callsign or @group.")
                     return
                 got = js8.set_selected_call(want)
-                log("JS8 selected call set:", want or "(none)", "->", got)
-                if want and (got or "").upper() != want:
-                    mesh_send(sender, f"Station didn't select {want}; selected: {got or 'none'}")
+                log("JS8 selected call set:", want or "(none)", "-> reply", got)
+                # the reply can come back before the station's selection shows; ask again
+                for _ in range(4):
+                    if (got or "").upper() == want:
+                        break
+                    time.sleep(0.5)
+                    got = js8.get_selected_call()
+                    log("  selected call now:", got)
+                if (got or "").upper() != want:
+                    mesh_send(sender, f"Asked the station to select {want or 'none'}, "
+                                      f"but it reports: {got or 'none'}")
                     return
             got = js8.get_selected_call()
             mesh_send(sender, f"Selected call: {got}" if got else "No call selected.")
