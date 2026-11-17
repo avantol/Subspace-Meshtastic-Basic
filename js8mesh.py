@@ -47,7 +47,7 @@ from meshtastic.ble_interface import BLEInterface
 
 # ---- settings --------------------------------------------------------------
 MESH_NODE = "Rpt1_be91"               # Rpt1 (FD:08:0B:7B:BE:91), the node this PC connects to over BLE
-ALLOWED_NODES = {"!4b7e12ad"}         # Wio1. Only these nodes may use commands; RX goes to them.
+ALLOWED_NODES = {"!8a31cb4a"}         # Wio1. Only these nodes may use commands; RX goes to them.
 INBOX_COUNT = 5                       # how many inbox messages INBOX returns
 MESH_CHUNK = 200                      # max characters per Meshtastic message
 MESH_GAP = 3.0                        # seconds between outgoing mesh messages (LoRa airtime)
@@ -83,15 +83,15 @@ def log(*args):
 
 # ---- forwarded groups ---------------------------------------------------------
 def load_groups():
-    """The @groups to forward, or None for all groups."""
+    """The @groups to forward, or None for all groups. Default: none."""
     try:
         with open(GROUPS_FILE) as f:
             groups = json.load(f)
     except FileNotFoundError:
-        return None
+        return set()
     except (OSError, ValueError) as e:
-        log("Can't read", GROUPS_FILE, "- forwarding all groups:", e)
-        return None
+        log("Can't read", GROUPS_FILE, "- forwarding no groups:", e)
+        return set()
     return None if groups is None else set(groups)
 
 

@@ -1,6 +1,6 @@
 # JS8Call ↔ Meshtastic gateway commands
 
-Send these as a **direct message to Rpt1** from an allowed node (currently Wio1, `!4b7e12ad`).
+Send these as a **direct message to Rpt1** from an allowed node (currently Wio1, `!8a31cb4a`).
 Commands are not case-sensitive, a leading `.` is optional, and the short form in the first column works the same as the full name.
 
 | Short | Full command | What it does | Transmits on HF? |
