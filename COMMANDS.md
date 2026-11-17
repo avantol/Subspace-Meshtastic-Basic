@@ -1,6 +1,6 @@
-# JS8Call ↔ Meshtastic gateway commands
+# Subspace ↔ Meshtastic gateway commands
 
-Send these as a **direct message to Rpt1** from an allowed node (currently Wio1, `!8a31cb4a`).
+Send these as a **direct message to Rpt1** from an allowed node (currently Wio1, `!4b7e12ad`).
 Commands are not case-sensitive, a leading `.` is optional, and the short form in the first column works the same as the full name.
 
 | Short | Full command | What it does | Transmits on HF? |
@@ -19,13 +19,12 @@ Commands are not case-sensitive, a leading `.` is optional, and the short form i
 | `fr` | `FREQ <MHz>` | Move the radio's VFO dial, e.g. `fr 7.078`. Refuses frequencies outside the ham bands. | No |
 | `of` | `OFFSET` | Show the TX audio offset and whether auto-move is on | No |
 | `of` | `OFFSET <Hz>` | Set the TX audio offset (300–2700 Hz), e.g. `of 1500`. Turns auto-move off so it stays put. | No |
-| `of` | `OFFSET AUTO` | Turn auto-move back on (local JS8Call only; not available over WiFi to Subspace) | No |
 | `gr` | `GROUPS` | Show which @groups are forwarded to you | No |
 | `gr` | `GROUPS @<G> [@<G> ...]` | Forward only these groups, e.g. `gr @magnet @allcall` (the `@` is optional) | No |
 | `gr` | `GROUPS ALL` / `GROUPS NONE` | Forward every group / no groups (the default), only messages to WM8Q | No |
 | `ca` | `CALL` | Show the callsign (or @group) currently selected at the station | No |
 | `ca` | `CALL <CALL>` / `CALL NONE` | Select a callsign or @group, e.g. `ca kd8skz`, or clear the selection. Subspace backend only. | No |
-| `pi` | `PING` | Check the gateway is up and connected to JS8Call or Subspace | No |
+| `pi` | `PING` | Check the gateway is up and connected to Subspace | No |
 | `h` / `?` | `HELP` | List the commands | No |
 
 ## Notes

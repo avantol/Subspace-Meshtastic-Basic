@@ -13,7 +13,7 @@ handheld  --LoRa-->  gateway node  --Bluetooth LE-->  gateway PC  --WiFi-->  rad
 - **Gateway PC:** any PC with Bluetooth LE (Bluetooth 4.0 or newer) that runs this program. An old laptop is enough.
 - **Radio PC:** the PC that runs Subspace and controls the radio.
 
-The gateway PC and the radio PC can be the same machine. In that case you can use plain JS8Call instead of Subspace (see [Using JS8Call on the same PC](#using-js8call-on-the-same-pc)).
+The gateway PC and the radio PC can be the same machine.
 
 ## What you need
 
@@ -168,15 +168,6 @@ Meshtastic connected. Allowed nodes: !8a31cb4a
 ```
 
 From your handheld, send a **direct message** (not a channel message) containing `pi` to the gateway node. The reply should be `Gateway up. Subspace (WiFi) connected as N0CALL.` Send `h` for the command list. All commands are described in [COMMANDS.md](COMMANDS.md).
-
-## Using JS8Call on the same PC
-
-If the radio is plugged into the gateway PC itself, you can skip Subspace and use JS8Call on that PC:
-
-1. In JS8Call, open **File > Settings > Reporting** and turn on the **TCP Server API** on port **2442**, with **Accept TCP Requests** checked.
-2. In `js8mesh.py`, set the backend to `"local"`.
-
-CQ, REPLY and SNR, and setting the selected call with CALL, work only with Subspace. Everything else works with either backend.
 
 ## Troubleshooting
 
