@@ -1,0 +1,118 @@
+# Builds the C++ gateway (cpp/) for Windows 10/11 and Linux Mint 22, runs the tests, and
+# makes the installers: a Windows setup .exe (Inno Setup) plus a portable .zip, and a .deb.
+# A tag like v1.2.0 also publishes them as a GitHub release.
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths: ["cpp/**", ".github/workflows/build.yml"]
+  pull_request:
+    paths: ["cpp/**", ".github/workflows/build.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    # Linux Mint 22 is built on Ubuntu 24.04, so a package built here installs there.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Qt 6 and tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential cmake ninja-build dpkg-dev \
+            qt6-base-dev qt6-connectivity-dev qt6-serialport-dev
+      - name: Version
+        id: ver
+        shell: bash
+        run: |
+          v=$(sed -n 's/^project(js8mesh VERSION \([0-9.]*\).*/\1/p' cpp/CMakeLists.txt)
+          [[ "$GITHUB_REF" == refs/tags/v* ]] && v="${GITHUB_REF#refs/tags/v}"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+      - name: Build
+        run: |
+          cmake -S cpp -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+      - name: Package (.deb)
+        run: |
+          cd build
+          cpack -G DEB -D CPACK_PACKAGE_VERSION=${{ steps.ver.outputs.version }}
+          mv js8mesh_*.deb ../js8mesh-${{ steps.ver.outputs.version }}-linuxmint22-amd64.deb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: js8mesh-linux
+          path: js8mesh-*.deb
+
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Qt 6.8 LTS
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.8.3"
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          modules: qtconnectivity qtserialport
+          cache: true
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Version
+        id: ver
+        shell: bash
+        run: |
+          v=$(sed -n 's/^project(js8mesh VERSION \([0-9.]*\).*/\1/p' cpp/CMakeLists.txt)
+          [[ "$GITHUB_REF" == refs/tags/v* ]] && v="${GITHUB_REF#refs/tags/v}"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+      - name: Build
+        run: |
+          cmake -S cpp -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+      - name: Gather files
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force cpp/dist | Out-Null
+          Copy-Item build/js8mesh.exe cpp/dist/
+          windeployqt --release --no-translations --no-system-d3d-compiler --no-opengl-sw cpp/dist/js8mesh.exe
+          # the Visual C++ runtime, next to the program (no separate redistributable to install)
+          Copy-Item "$env:VCToolsRedistDir\x64\Microsoft.VC143.CRT\*.dll" cpp/dist/
+          Copy-Item README.md, COMMANDS.md, SETUP.md cpp/dist/ -ErrorAction SilentlyContinue
+          Compress-Archive -Path cpp/dist/* -DestinationPath js8mesh-${{ steps.ver.outputs.version }}-windows-portable.zip
+      - name: Installer (Inno Setup)
+        shell: pwsh
+        run: |
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) {
+            choco install innosetup -y --no-progress
+            $env:PATH += ";${env:ProgramFiles(x86)}\Inno Setup 6"
+          }
+          iscc /DAppVersion=${{ steps.ver.outputs.version }} /DSourceDir=..\dist cpp/packaging/js8mesh.iss
+          Move-Item cpp/installer/*.exe .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: js8mesh-windows
+          path: |
+            js8mesh-*-windows-setup.exe
+            js8mesh-*-windows-portable.zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [linux, windows]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            js8mesh-*.deb
+            js8mesh-*-windows-setup.exe
+            js8mesh-*-windows-portable.zip

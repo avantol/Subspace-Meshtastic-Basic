@@ -5,3 +5,6 @@ __pycache__/
 
 # local notes for Claude Code (station details); not published
 CLAUDE.md
+cpp/dist/
+cpp/installer/
+build/
