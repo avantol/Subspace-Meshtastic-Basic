@@ -1,4 +1,4 @@
-// JS8 Mesh Gateway: lets a Meshtastic handheld use a JS8 station (Subspace Edition or JS8Call).
+// JS8 Mesh Gateway: lets a Meshtastic handheld use a Subspace Edition JS8 station.
 //   --start      start the gateway at once
 //   --minimized  start hidden in the system tray
 #include "MainWindow.h"

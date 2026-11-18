@@ -11,6 +11,7 @@ Commands are not case-sensitive, a leading `.` is optional, and the short form i
 | `cq` | `CQ` | Subspace CQ button: Clears any selected call first. (Subspace only) | Yes |
 | `re` | `REPLY [CALL]` | Subspace REPLY button: Send standard reply to CALL (selecting it), or for the currently-selected call, e.g. `re kd8skz`. Error if neither, or if a group is selected. (Subspace only) | Yes |
 | `sn` | `SNR [CALL]` | Subspace SNR button: Send signal report for CALL (or the currently-selected call) its signal report, e.g. `sn kd8skz`. Error if neither, or if a group is selected. (Subspace only) | Yes |
+| `ag` | `AGAIN` | Subspace Repeat: send the last message again (the phone remote's Repeat button, then Send). Error if nothing was sent yet, or a message is already waiting. (Windows/Linux app only) | Yes |
 | `hb` | `HB` | Send a heartbeat (`@HB HEARTBEAT DN61`), then report whether it went out | Yes |
 | `in` | `INBOX` | List latest 5 Inbox messages (`*` = unread) | No |
 | `he` | `HEARD` | List up to 8 stations heard in the last hour: callsign, SNR, grid, minutes ago | No |

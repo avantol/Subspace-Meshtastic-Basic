@@ -22,7 +22,6 @@ class SubspaceRemoteApi : public Js8Api {
     void start() override;
     QString describe() const override;
     bool isConnected() const override { return m_eventsUp && !m_session.isEmpty(); }
-    bool isSubspace() const override { return true; }
     void request(const QString &type, const QString &value, const QVariantMap &params, Callback cb,
                  bool expectReply = true) override;
 

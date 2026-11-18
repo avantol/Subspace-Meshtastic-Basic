@@ -15,14 +15,10 @@ struct Settings {
     QStringList allowedNodes;       // node IDs like "!8a31cb4a"
     int hopLimit = 3;
 
-    // JS8 station
-    enum Js8Type { Js8SubspaceRemote, Js8TcpApi };
-    Js8Type js8Type = Js8SubspaceRemote;
+    // Subspace station
     QString subspaceUrl = QStringLiteral("http://192.168.1.50:2443");
     QString subspacePasscode;
     int reloginSeconds = 120;       // after a phone takes the Subspace remote, wait before retaking it
-    QString js8Host = QStringLiteral("127.0.0.1");
-    int js8Port = 2442;
 
     // forwarding of received JS8 messages
     enum GroupsMode { GroupsNone, GroupsAll, GroupsList };

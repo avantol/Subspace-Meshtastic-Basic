@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=JS8 Mesh Gateway
-Comment=Use a JS8 station (Subspace or JS8Call) from a Meshtastic handheld
+Comment=Use a Subspace Edition JS8 station from a Meshtastic handheld
 Exec=js8mesh
 Icon=network-wireless
 Terminal=false

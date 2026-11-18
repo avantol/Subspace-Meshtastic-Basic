@@ -90,7 +90,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), m_gw(new Gateway(
     auto *tabs = new QTabWidget;
     tabs->addTab(buildGatewayTab(), tr("Gateway"));
     tabs->addTab(buildMeshTab(), tr("Meshtastic node"));
-    tabs->addTab(buildJs8Tab(), tr("JS8 station"));
+    tabs->addTab(buildJs8Tab(), tr("Subspace station"));
     tabs->addTab(buildForwardTab(), tr("Forwarding && limits"));
     tabs->addTab(buildOptionsTab(), tr("Options"));
 
@@ -230,15 +230,7 @@ QWidget *MainWindow::buildMeshTab() {
 QWidget *MainWindow::buildJs8Tab() {
     auto *w = new QWidget;
     auto *v = new QVBoxLayout(w);
-    auto *f = new QFormLayout;
-    m_js8Type = new QComboBox;
-    m_js8Type->addItems({tr("Subspace phone remote (over WiFi)"), tr("JS8Call or Subspace TCP API")});
-    f->addRow(tr("Connect to:"), m_js8Type);
-    v->addLayout(f);
-
-    m_js8Pages = new QStackedWidget;
-    auto *remote = new QWidget;
-    auto *rf = new QFormLayout(remote);
+    auto *rf = new QFormLayout;
     m_url = new QLineEdit;
     m_url->setPlaceholderText("http://192.168.1.50:2443");
     m_passcode = new QLineEdit;
@@ -257,20 +249,7 @@ QWidget *MainWindow::buildJs8Tab() {
                        "Home network address and pass code it shows. The remote allows one login at a time: a "
                        "phone logging in logs the gateway out, and after the wait above the gateway logs back in "
                        "(logging the phone out). The pass code is stored in this app's settings.")));
-    m_js8Pages->addWidget(remote);
-
-    auto *tcp = new QWidget;
-    auto *tf = new QFormLayout(tcp);
-    m_js8Host = new QLineEdit;
-    m_js8Port = spin(1, 65535);
-    tf->addRow(tr("Address:"), m_js8Host);
-    tf->addRow(tr("Port:"), m_js8Port);
-    tf->addRow(note(tr("JS8Call: File > Settings > Reporting: enable the TCP Server API (port 2442) and "
-                       "Accept TCP Requests. With plain JS8Call, CQ, REPLY, SNR and selecting a call "
-                       "aren't available.")));
-    m_js8Pages->addWidget(tcp);
-    connect(m_js8Type, &QComboBox::currentIndexChanged, m_js8Pages, &QStackedWidget::setCurrentIndex);
-    v->addWidget(m_js8Pages);
+    v->addLayout(rf);
     v->addStretch();
     return w;
 }
@@ -361,13 +340,9 @@ void MainWindow::showSettings(const Settings &s) {
     m_meshTcpPort->setValue(s.meshTcpPort);
     m_allowed->setText(s.allowedNodes.join(' '));
     m_hopLimit->setValue(s.hopLimit);
-    m_js8Type->setCurrentIndex(int(s.js8Type));
-    m_js8Pages->setCurrentIndex(int(s.js8Type));
     m_url->setText(s.subspaceUrl);
     m_passcode->setText(s.subspacePasscode);
     m_relogin->setValue(s.reloginSeconds);
-    m_js8Host->setText(s.js8Host);
-    m_js8Port->setValue(s.js8Port);
     m_groupsNone->setChecked(s.groupsMode == Settings::GroupsNone);
     m_groupsAll->setChecked(s.groupsMode == Settings::GroupsAll);
     m_groupsList->setChecked(s.groupsMode == Settings::GroupsList);
@@ -397,12 +372,9 @@ Settings MainWindow::collectSettings() const {
         s.allowedNodes << n;
     }
     s.hopLimit = m_hopLimit->value();
-    s.js8Type = Settings::Js8Type(m_js8Type->currentIndex());
     s.subspaceUrl = m_url->text().trimmed();
     s.subspacePasscode = m_passcode->text().trimmed();
     s.reloginSeconds = m_relogin->value();
-    s.js8Host = m_js8Host->text().trimmed();
-    s.js8Port = m_js8Port->value();
     s.groupsMode = m_groupsAll->isChecked() ? Settings::GroupsAll
                  : m_groupsList->isChecked() ? Settings::GroupsList
                                              : Settings::GroupsNone;

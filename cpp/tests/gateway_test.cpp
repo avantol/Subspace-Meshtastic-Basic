@@ -19,12 +19,12 @@ static void check(bool ok, const char *what, const QString &got = {}) {
 class FakeApi : public Js8Api {
   public:
     QString selected = "@MAGTG";
+    QString lastTx, box; // the last message sent, and the station's message box
     QStringList calls; // "TYPE value params" of each request
     QJsonObject activity, inbox;
     void start() override {}
     QString describe() const override { return "Fake"; }
     bool isConnected() const override { return true; }
-    bool isSubspace() const override { return true; }
     void push(const QJsonObject &ev) { emit event(ev); }
     void up() { emit connectedChanged(true); }
     void request(const QString &type, const QString &value, const QVariantMap &params, Callback cb, bool) override {
@@ -39,7 +39,15 @@ class FakeApi : public Js8Api {
         else if (type == "TX.SEND_DIRECTED")
             cb(r("", {{"OK", true}, {"COMPOSED", "WM8Q: " + params["TO"].toString() + " " + params["CMD"].toString()}}), {});
         else if (type == "TX.GET_ENABLED") cb(r("", {{"ENABLED", true}}), {});
-        else if (type == "UI.ACTION") {
+        else if (type == "UI.ACTION" && value == "repeat") {
+            bool ok = !lastTx.isEmpty();
+            if (ok) box = lastTx;
+            cb(r(value, {{"OK", ok}, {"REASON", ok ? "" : "disabled"}}), {});
+        } else if (type == "TX.GET_TEXT") cb(r(box), {});
+        else if (type == "UI.ACTION" && value == "send") {
+            bool ok = !box.isEmpty();
+            cb(r(value, {{"OK", ok}, {"REASON", ok ? "" : "disabled"}}), {});
+        } else if (type == "UI.ACTION") {
             bool ok = !(value != "cq" && selected.startsWith('@'));
             cb(r(value, {{"OK", ok}, {"REASON", ok ? "" : "disabled"}}), {});
         } else if (type == "RIG.GET_FREQ") cb(r("", {{"DIAL", 7078000}, {"OFFSET", 1500}}), {});
@@ -103,6 +111,15 @@ int main(int argc, char **argv) {
     out.clear();
     api.push({{"type", "TX.COMPLETE"}, {"value", "KD8SKZ SNR -31 "}});
     check(out.join("") == "Transmitted on JS8: SNR to KD8SKZ", "TX.COMPLETE without our prefix", out.join(""));
+    r = run("ag");
+    check(r == "AGAIN failed: nothing sent yet, or a message is already waiting to send", "AGAIN with nothing sent", r);
+    api.lastTx = "WM8Q: KD8SKZ SNR -31";
+    r = run("again");
+    check(r == "AGAIN: KD8SKZ SNR -31 pressed.", "AGAIN restores and sends", r);
+    check(api.calls.join(";") == "UI.ACTION repeat;TX.GET_TEXT;UI.ACTION send;TX.GET_ENABLED", "AGAIN requests", api.calls.join(";"));
+    out.clear();
+    api.push({{"type", "TX.COMPLETE"}, {"value", "KD8SKZ SNR -31 "}});
+    check(out.join("") == "Transmitted on JS8: AGAIN: KD8SKZ SNR -31", "AGAIN confirmed", out.join(""));
     r = run("ca");
     check(r == "Selected call: KD8SKZ", "CALL shows", r);
     r = run("ca @subspace");

@@ -58,11 +58,9 @@ class MainWindow : public QMainWindow {
     QLineEdit *m_bleDevice, *m_meshTcpHost, *m_allowed;
     QComboBox *m_serialPort;
     QSpinBox *m_meshTcpPort, *m_hopLimit;
-    // js8 tab
-    QComboBox *m_js8Type;
-    QStackedWidget *m_js8Pages;
-    QLineEdit *m_url, *m_passcode, *m_js8Host;
-    QSpinBox *m_relogin, *m_js8Port;
+    // Subspace station tab
+    QLineEdit *m_url, *m_passcode;
+    QSpinBox *m_relogin;
     // forwarding & limits
     QRadioButton *m_groupsNone, *m_groupsAll, *m_groupsList;
     QLineEdit *m_groups;

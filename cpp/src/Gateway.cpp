@@ -1,7 +1,6 @@
 #include "Gateway.h"
 
 #include "BleMeshLink.h"
-#include "Js8TcpApi.h"
 #include "MeshProto.h"
 #include "StreamMeshLink.h"
 #include "SubspaceRemoteApi.h"
@@ -23,7 +22,7 @@ constexpr int kOffsetMin = 300, kOffsetMax = 2700;
 const QHash<QString, QString> kAliases = {
     {"SE", "SEND"}, {"IN", "INBOX"}, {"HE", "HEARD"}, {"ST", "STATUS"}, {"FR", "FREQ"},
     {"OF", "OFFSET"}, {"PI", "PING"}, {"GR", "GROUPS"}, {"CA", "CALL"}, {"RE", "REPLY"},
-    {"SN", "SNR"}, {"H", "HELP"}, {"?", "HELP"}};
+    {"SN", "SNR"}, {"AG", "AGAIN"}, {"H", "HELP"}, {"?", "HELP"}};
 
 const QRegularExpression kCallRe(
     QStringLiteral("^(@[A-Z0-9]{1,8}|[A-Z0-9]{1,3}[0-9][A-Z0-9]{0,3}(/[A-Z0-9]{1,4})?)$"));
@@ -64,17 +63,6 @@ QString bandOf(qint64 hz) {
     return {};
 }
 
-QString speedName(int submode) {
-    switch (submode) {
-    case 0: return "normal";
-    case 1: return "fast";
-    case 2: return "turbo";
-    case 4: return "slow";
-    case 8: return "ultra";
-    default: return QStringLiteral("submode %1").arg(submode);
-    }
-}
-
 QString ascii(const QString &s) {
     static const QRegularExpression nonAscii(QStringLiteral("[^\\x20-\\x7e]+"));
     QString t = s;
@@ -109,10 +97,7 @@ void Gateway::start(const Settings &settings) {
     stop();
     m_s = settings;
     m_running = true;
-    if (m_s.js8Type == Settings::Js8SubspaceRemote)
-        m_api = new SubspaceRemoteApi(m_s.subspaceUrl, m_s.subspacePasscode, m_s.reloginSeconds, this);
-    else
-        m_api = new Js8TcpApi(m_s.js8Host, quint16(m_s.js8Port), this);
+    m_api = new SubspaceRemoteApi(m_s.subspaceUrl, m_s.subspacePasscode, m_s.reloginSeconds, this);
     m_ownsApi = true;
     wireApi();
     log(tr("Connecting to %1...").arg(m_api->describe()));
@@ -305,21 +290,6 @@ void Gateway::onJs8Event(const QJsonObject &ev) {
             }
         }
         log(tr("JS8 TX.COMPLETE for something the gateway didn't send: '%1'").arg(ev.value("value").toString()));
-    } else if (type == "RIG.PTT" && m_api && !m_api->isSubspace()) {
-        // JS8Call has no TX.COMPLETE: PTT off with an empty TX box means the message went out
-        bool on = p.contains("PTT") ? p.value("PTT").toBool() : ev.value("value").toString() == "on";
-        if (on || m_tx.isEmpty()) return;
-        request("TX.GET_TEXT", {}, {}, [this](const QJsonObject &r, const QString &err) {
-            if (!err.isEmpty() || !r.value("value").toString().trimmed().isEmpty()) return;
-            for (int i = 0; i < m_tx.size(); ++i) {
-                if (m_tx[i].status == "sending") {
-                    PendingTx t = m_tx.takeAt(i);
-                    log(tr("JS8 TX status [%1]: sent").arg(t.label));
-                    reply(t.sender, tr("Transmitted on JS8: %1").arg(t.label));
-                    return;
-                }
-            }
-        });
     }
 }
 
@@ -380,10 +350,6 @@ void Gateway::checkTx() {
 }
 
 void Gateway::withTxWarning(std::function<void(const QString &)> then) {
-    if (!m_api || !m_api->isSubspace()) {
-        then({});
-        return;
-    }
     request("TX.GET_ENABLED", {}, {}, [then](const QJsonObject &r, const QString &err) {
         bool off = err.isEmpty() && !r.value("params").toObject().value("ENABLED").toBool(true);
         then(off ? QStringLiteral(" WARNING: TX is OFF at the station.") : QString());
@@ -398,28 +364,17 @@ void Gateway::sendDirected(const QString &sender, const QString &dest, const QSt
             reply(sender, tr("Queued for JS8 TX: %1%2").arg(label, warn));
         });
     };
-    if (m_api && m_api->isSubspace()) {
-        request("TX.SEND_DIRECTED", {}, {{"TO", dest}, {"CMD", body}, {"PRIORITY", "NORMAL"}},
-                [=](const QJsonObject &r, const QString &err) {
-                    QJsonObject p = r.value("params").toObject();
-                    if (!err.isEmpty() || !p.value("OK").toBool()) {
-                        QString why = err.isEmpty() ? p.value("ERROR").toString() : err;
-                        log(tr("JS8 TX failed: %1").arg(why));
-                        reply(sender, tr("JS8 send failed: %1").arg(why));
-                        return;
-                    }
-                    queued(p.value("COMPOSED").toString());
-                });
-    } else {
-        QString text = dest + ' ' + body;
-        request("TX.SEND_MESSAGE", text, {}, [=](const QJsonObject &, const QString &err) {
-            if (!err.isEmpty()) {
-                reply(sender, tr("JS8 send failed: %1").arg(err));
-                return;
-            }
-            queued(text);
-        }, false);
-    }
+    request("TX.SEND_DIRECTED", {}, {{"TO", dest}, {"CMD", body}, {"PRIORITY", "NORMAL"}},
+            [=](const QJsonObject &r, const QString &err) {
+                QJsonObject p = r.value("params").toObject();
+                if (!err.isEmpty() || !p.value("OK").toBool()) {
+                    QString why = err.isEmpty() ? p.value("ERROR").toString() : err;
+                    log(tr("JS8 TX failed: %1").arg(why));
+                    reply(sender, tr("JS8 send failed: %1").arg(why));
+                    return;
+                }
+                queued(p.value("COMPOSED").toString());
+            });
 }
 
 void Gateway::waitForSelection(const QString &want, int tries, std::function<void(bool, const QString &)> done) {
@@ -485,12 +440,11 @@ void Gateway::handleCommand(const QString &sender, const QString &text) {
     cmd = kAliases.value(cmd, cmd);
     QStringList args = words.mid(1);
     for (QString &a : args) a = a.toUpper();
-    const bool subspace = m_api && m_api->isSubspace();
 
     if (cmd == "HELP") {
         reply(sender, tr("JS8 gateway (short forms in caps, leading . optional): "
                          "SEnd [CALL|@GROUP] <msg> | INbox | HEard | STatus | FReq [MHz] | OFfset [Hz] | "
-                         "GRoups [@G ..|ALL|NONE] | CAll [CALL|NONE] | CQ | REply [CALL] | SNr [CALL] | "
+                         "GRoups [@G ..|ALL|NONE] | CAll [CALL|NONE] | CQ | REply [CALL] | SNr [CALL] | AGain | "
                          "HB | PIng | H/?"));
 
     } else if (cmd == "PING") {
@@ -574,25 +528,16 @@ void Gateway::handleCommand(const QString &sender, const QString &text) {
 
     } else if (cmd == "HB") {
         QString grid = m_grid.left(4);
-        if (subspace) {
-            request("TX.SEND_DIRECTED", {}, {{"TO", "@HB"}, {"CMD", ("HEARTBEAT " + grid).trimmed()}, {"PRIORITY", "NORMAL"}},
-                    [=](const QJsonObject &r, const QString &err) {
-                        QJsonObject p = r.value("params").toObject();
-                        if (!err.isEmpty() || !p.value("OK").toBool()) {
-                            reply(sender, tr("HB failed: %1").arg(err.isEmpty() ? p.value("ERROR").toString() : err));
-                            return;
-                        }
-                        trackTx(sender, "heartbeat", p.value("COMPOSED").toString());
-                        withTxWarning([=](const QString &w) { reply(sender, tr("Heartbeat queued for JS8 TX.%1").arg(w)); });
-                    });
-        } else {
-            QString hb = ("@HB HEARTBEAT " + grid).trimmed();
-            request("TX.SEND_MESSAGE", hb, {}, [=](const QJsonObject &, const QString &err) {
-                if (!err.isEmpty()) { reply(sender, tr("HB failed: %1").arg(err)); return; }
-                trackTx(sender, "heartbeat", hb);
-                reply(sender, tr("Heartbeat queued for JS8 TX."));
-            }, false);
-        }
+        request("TX.SEND_DIRECTED", {}, {{"TO", "@HB"}, {"CMD", ("HEARTBEAT " + grid).trimmed()}, {"PRIORITY", "NORMAL"}},
+                [=](const QJsonObject &r, const QString &err) {
+                    QJsonObject p = r.value("params").toObject();
+                    if (!err.isEmpty() || !p.value("OK").toBool()) {
+                        reply(sender, tr("HB failed: %1").arg(err.isEmpty() ? p.value("ERROR").toString() : err));
+                        return;
+                    }
+                    trackTx(sender, "heartbeat", p.value("COMPOSED").toString());
+                    withTxWarning([=](const QString &w) { reply(sender, tr("Heartbeat queued for JS8 TX.%1").arg(w)); });
+                });
 
     } else if (cmd == "GROUPS") {
         if (args.isEmpty()) { reply(sender, m_s.groupsText()); return; }
@@ -628,14 +573,12 @@ void Gateway::handleCommand(const QString &sender, const QString &text) {
             });
         };
         if (args.isEmpty()) { show(); return; }
-        if (!subspace) { reply(sender, tr("Selecting a call needs a Subspace station; JS8Call's API can't do it.")); return; }
         QString want = args[0];
         if (want == "NONE" || want == "-") want.clear();
         else if (!isCall(want)) { reply(sender, tr("'%1' doesn't look like a callsign or @group.").arg(want)); return; }
         selectAndThen(sender, want, show);
 
     } else if (cmd == "CQ" || cmd == "REPLY" || cmd == "SNR") {
-        if (!subspace) { reply(sender, tr("%1 needs a Subspace station; JS8Call's API can't press buttons.").arg(cmd)); return; }
         if (cmd == "CQ") {
             // CQ goes to no one: clear any selection first
             request("RX.GET_CALL_SELECTED", {}, {}, [=](const QJsonObject &r, const QString &err) {
@@ -661,6 +604,29 @@ void Gateway::handleCommand(const QString &sender, const QString &text) {
                 else go(call);
             });
         }
+
+    } else if (cmd == "AGAIN") {
+        // the phone's Repeat: put the last sent message back in the box, then press Send
+        request("UI.ACTION", "repeat", {}, [=](const QJsonObject &r, const QString &err) {
+            QJsonObject p = r.value("params").toObject();
+            if (!err.isEmpty() || !p.value("OK").toBool()) {
+                QString why = !err.isEmpty() ? err
+                            : tr("nothing sent yet, or a message is already waiting to send");
+                log(tr("JS8 AGAIN failed: %1").arg(why));
+                reply(sender, tr("AGAIN failed: %1").arg(why));
+                return;
+            }
+            request("TX.GET_TEXT", {}, {}, [=](const QJsonObject &t, const QString &e) {
+                QString text = ascii(t.value("value").toString()).trimmed();
+                if (!e.isEmpty() || text.isEmpty()) {
+                    reply(sender, tr("AGAIN failed: %1").arg(e.isEmpty() ? tr("the station's message box is empty") : e));
+                    return;
+                }
+                QString label = text;
+                if (label.toUpper().startsWith(m_callsign + ":")) label = label.mid(m_callsign.size() + 1).trimmed();
+                press(sender, "send", text, tr("AGAIN: %1").arg(label));
+            });
+        });
 
     } else {
         reply(sender, tr("Unknown command. Send HELP."));
@@ -741,13 +707,8 @@ void Gateway::cmdStatus(const QString &sender) {
                                        last ? ago(last) + tr(" ago") : tr("none yet")));
             });
         };
-        if (m_api && m_api->isSubspace())
-            request("MODE.GET_SUBMODE_NAME", {}, {}, [=](const QJsonObject &s, const QString &e) {
-                finish(e.isEmpty() ? s.value("params").toObject().value("NAME").toString().toLower() : "?");
-            });
-        else
-            request("MODE.GET_SPEED", {}, {}, [=](const QJsonObject &s, const QString &e) {
-                finish(e.isEmpty() ? speedName(s.value("params").toObject().value("SPEED").toInt()) : "?");
-            });
+        request("MODE.GET_SUBMODE_NAME", {}, {}, [=](const QJsonObject &s, const QString &e) {
+            finish(e.isEmpty() ? s.value("params").toObject().value("NAME").toString().toLower() : "?");
+        });
     });
 }

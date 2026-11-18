@@ -20,7 +20,6 @@ add_library(js8mesh_core STATIC
     src/StreamMeshLink.h src/StreamMeshLink.cpp
     src/Js8Api.h
     src/SubspaceRemoteApi.h src/SubspaceRemoteApi.cpp
-    src/Js8TcpApi.h src/Js8TcpApi.cpp
     src/Gateway.h src/Gateway.cpp
 )
 target_include_directories(js8mesh_core PUBLIC src)
@@ -49,7 +48,7 @@ endif()
 set(CPACK_PACKAGE_NAME "js8mesh")
 set(CPACK_PACKAGE_VENDOR "WM8Q")
 set(CPACK_PACKAGE_CONTACT "https://github.com/avantol/Subspace-Meshtastic-Basic")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "JS8 (Subspace / JS8Call) <-> Meshtastic gateway")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Subspace Edition (JS8) <-> Meshtastic gateway")
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 # the platform plugin (window system) and BlueZ (Bluetooth) aren't found by shlibdeps
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "qt6-qpa-plugins, bluez")

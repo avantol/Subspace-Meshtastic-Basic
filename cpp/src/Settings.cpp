@@ -40,12 +40,9 @@ void Settings::load() {
     allowedNodes = q.value("mesh/allowedNodes", allowedNodes).toStringList();
     hopLimit = q.value("mesh/hopLimit", hopLimit).toInt();
 
-    js8Type = Js8Type(q.value("js8/type", int(js8Type)).toInt());
     subspaceUrl = q.value("js8/subspaceUrl", subspaceUrl).toString();
     subspacePasscode = q.value("js8/subspacePasscode", subspacePasscode).toString();
     reloginSeconds = q.value("js8/reloginSeconds", reloginSeconds).toInt();
-    js8Host = q.value("js8/host", js8Host).toString();
-    js8Port = q.value("js8/port", js8Port).toInt();
 
     groupsMode = GroupsMode(q.value("forward/groupsMode", int(groupsMode)).toInt());
     groups = q.value("forward/groups", groups).toStringList();
@@ -71,12 +68,12 @@ void Settings::save() const {
     q.setValue("mesh/tcpPort", meshTcpPort);
     q.setValue("mesh/allowedNodes", allowedNodes);
     q.setValue("mesh/hopLimit", hopLimit);
-    q.setValue("js8/type", int(js8Type));
+    q.remove("js8/type"); // from versions that also spoke JS8Call's TCP API
+    q.remove("js8/host");
+    q.remove("js8/port");
     q.setValue("js8/subspaceUrl", subspaceUrl);
     q.setValue("js8/subspacePasscode", subspacePasscode);
     q.setValue("js8/reloginSeconds", reloginSeconds);
-    q.setValue("js8/host", js8Host);
-    q.setValue("js8/port", js8Port);
     q.setValue("forward/groupsMode", int(groupsMode));
     q.setValue("forward/groups", groups);
     q.setValue("limits/inboxCount", inboxCount);
@@ -99,13 +96,9 @@ QString Settings::validate() const {
         quint32 num;
         if (!meshproto::parseNodeId(n, num)) return QObject::tr("'%1' isn't a node ID (like !8a31cb4a).").arg(n);
     }
-    if (js8Type == Js8SubspaceRemote) {
-        if (!subspaceUrl.startsWith("http://") && !subspaceUrl.startsWith("https://"))
-            return QObject::tr("The Subspace address should look like http://192.168.1.50:2443");
-        if (subspacePasscode.trimmed().isEmpty()) return QObject::tr("Enter the Subspace phone-remote pass code.");
-    } else if (js8Host.trimmed().isEmpty()) {
-        return QObject::tr("Enter the JS8 station's address.");
-    }
+    if (!subspaceUrl.startsWith("http://") && !subspaceUrl.startsWith("https://"))
+        return QObject::tr("The Subspace address should look like http://192.168.1.50:2443");
+    if (subspacePasscode.trimmed().isEmpty()) return QObject::tr("Enter the Subspace phone-remote pass code.");
     return {};
 }
 

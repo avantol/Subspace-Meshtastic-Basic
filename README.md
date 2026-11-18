@@ -1,8 +1,8 @@
-This project will enable basic communication "away from the shack" using the JS8 protocol with [Subspace](https://github.com/avantol/Subspace-Edition/releases/latest) (or JS8Call) over a Meshtastic network.
+This project will enable basic communication "away from the shack" using the JS8 protocol with [Subspace](https://github.com/avantol/Subspace-Edition/releases/latest) over a Meshtastic network.
 
 The problem that's solved here is: "USB cables aren't long enough to run from within Bluetooth LE range of my Meshtastic router to the PC that runs my radio". 
 
-That's where the wi-fi link to the PC with the Subspace (or JS8Call) API comes in, it replaces the usual USB cable a "Companion" requires.
+That's where the wi-fi link to the PC with the Subspace API comes in, it replaces the usual USB cable a "Companion" requires.
 
 The controlling device is any Meshtastic "Companion", like the [Seeed Studio Wio Tracker L1 Pro](https://media-cdn.seeedstudio.com/cdn-cgi/image/format=auto%2Cwidth=640%2Cquality=75/media/catalog/product/cache/961a49e1875f8c1f40e5990d74e68365/2/0/20260408-135305.jpg).
 
