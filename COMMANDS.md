@@ -8,10 +8,10 @@ Commands are not case-sensitive, a leading `.` is optional, and the short form i
 | `se` | `SEND <CALL> <msg>` | Send a JS8 message as WM8Q, e.g. `se wd4kav snr?`. Replies "Queued", then "Transmitted" or "did NOT transmit". | Yes |
 | `se` | `SEND @<GROUP> <msg>` | Same, to a group, e.g. `se @allcall cq` | Yes |
 | `se` | `SEND <msg>` | No callsign given: send to the call or @group selected at the station (see `CALL`), e.g. `se snr?`. A first word that looks like a callsign (letters and a digit, like `kd8skz`) is taken as the destination; `73` is not. | Yes |
-| `cq` | `CQ` | Subspace CQ button: Clears any selected call first. (Subspace only) | Yes |
-| `re` | `REPLY [CALL]` | Subspace REPLY button: Send standard reply to CALL (selecting it), or for the currently-selected call, e.g. `re kd8skz`. Error if neither, or if a group is selected. (Subspace only) | Yes |
-| `sn` | `SNR [CALL]` | Subspace SNR button: Send signal report for CALL (or the currently-selected call) its signal report, e.g. `sn kd8skz`. Error if neither, or if a group is selected. (Subspace only) | Yes |
-| `ag` | `AGAIN` | Subspace Repeat: send the last message again (the phone remote's Repeat button, then Send). Error if nothing was sent yet, or a message is already waiting. (Windows/Linux app only) | Yes |
+| `cq` | `CQ` | Subspace CQ button: Clears any selected call first. | Yes |
+| `re` | `REPLY [CALL]` | Subspace REPLY button: Send standard reply to CALL (selecting it), or for the currently-selected call, e.g. `re kd8skz`. Error if neither, or if a group is selected. | Yes |
+| `sn` | `SNR [CALL]` | Subspace SNR button: Send signal report for CALL (or the currently-selected call) its signal report, e.g. `sn kd8skz`. Error if neither, or if a group is selected. | Yes |
+| `ag` | `AGAIN` | Subspace Repeat: send the last message again (the phone remote's Repeat button, then Send). Error if nothing was sent yet, or a message is already waiting. | Yes |
 | `hb` | `HB` | Send a heartbeat (`@HB HEARTBEAT DN61`), then report whether it went out | Yes |
 | `in` | `INBOX` | List latest 5 Inbox messages (`*` = unread) | No |
 | `he` | `HEARD` | List up to 8 stations heard in the last hour: callsign, SNR, grid, minutes ago | No |
@@ -24,7 +24,7 @@ Commands are not case-sensitive, a leading `.` is optional, and the short form i
 | `gr` | `GROUPS @<G> [@<G> ...]` | Forward only these groups, e.g. `gr @magnet @allcall` (the `@` is optional) | No |
 | `gr` | `GROUPS ALL` / `GROUPS NONE` | Forward every group / no groups (the default), only messages to WM8Q | No |
 | `ca` | `CALL` | Show the callsign (or @group) currently selected at the station | No |
-| `ca` | `CALL <CALL>` / `CALL NONE` | Select a callsign or @group, e.g. `ca kd8skz`, or clear the selection. Subspace backend only. | No |
+| `ca` | `CALL <CALL>` / `CALL NONE` | Select a callsign or @group, e.g. `ca kd8skz`, or clear the selection. | No |
 | `pi` | `PING` | Check the gateway is up and connected to Subspace | No |
 | `h` / `?` | `HELP` | List the commands | No |
 
