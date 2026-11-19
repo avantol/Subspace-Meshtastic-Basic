@@ -1,4 +1,5 @@
 #include "BleMeshLink.h"
+#include "QtCompat.h"
 
 #include <QBluetoothDeviceDiscoveryAgent>
 #include <QBluetoothUuid>
@@ -35,7 +36,7 @@ void BleMeshLink::start() {
     connect(m_agent, &QBluetoothDeviceDiscoveryAgent::finished, this, [this]() {
         if (!m_found) fail(tr("Bluetooth device '%1' not found (out of range, or another device is connected to it?)").arg(m_device));
     });
-    connect(m_agent, &QBluetoothDeviceDiscoveryAgent::errorOccurred, this,
+    connect(m_agent, JS8_AGENT_ERROR, this,
             [this]() { fail(tr("Bluetooth scan failed: %1").arg(m_agent->errorString())); });
     emit logMessage(tr("Scanning for Bluetooth device %1...").arg(m_device));
     m_agent->start(QBluetoothDeviceDiscoveryAgent::LowEnergyMethod);
@@ -62,7 +63,7 @@ void BleMeshLink::connectTo(const QBluetoothDeviceInfo &info) {
     });
     connect(m_ctl, &QLowEnergyController::connected, this, [this]() { m_ctl->discoverServices(); });
     connect(m_ctl, &QLowEnergyController::disconnected, this, [this]() { fail(tr("Bluetooth link lost")); });
-    connect(m_ctl, &QLowEnergyController::errorOccurred, this,
+    connect(m_ctl, JS8_CTL_ERROR, this,
             [this]() { fail(tr("Bluetooth error: %1").arg(m_ctl->errorString())); });
     connect(m_ctl, &QLowEnergyController::discoveryFinished, this, [this]() {
         m_svc = m_ctl->createServiceObject(kService, this);
@@ -71,7 +72,7 @@ void BleMeshLink::connectTo(const QBluetoothDeviceInfo &info) {
             return;
         }
         connect(m_svc, &QLowEnergyService::stateChanged, this, &BleMeshLink::onServiceState);
-        connect(m_svc, &QLowEnergyService::errorOccurred, this,
+        connect(m_svc, JS8_SVC_ERROR, this,
                 [this](QLowEnergyService::ServiceError e) {
                     // a failed read/write is reported here too; treat all as fatal (reconnect)
                     fail(tr("Bluetooth service error %1").arg(int(e)));
@@ -112,7 +113,7 @@ void BleMeshLink::connectTo(const QBluetoothDeviceInfo &info) {
 }
 
 void BleMeshLink::onServiceState() {
-    if (m_svc->state() != QLowEnergyService::RemoteServiceDiscovered) return;
+    if (m_svc->state() != JS8_SVC_DISCOVERED) return;
     m_toRadio = m_svc->characteristic(kToRadio);
     m_fromRadio = m_svc->characteristic(kFromRadio);
     m_fromNum = m_svc->characteristic(kFromNum);

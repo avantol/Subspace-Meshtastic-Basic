@@ -1,5 +1,6 @@
-# Builds the C++ gateway (cpp/) for Windows 10/11 and Linux Mint 22, runs the tests, and
-# makes the installers: a Windows setup .exe (Inno Setup) plus a portable .zip, and a .deb.
+# Builds the C++ gateway (cpp/) for Windows 10/11 (64-bit with Qt 6, 32-bit with Qt 5.15,
+# since Qt 6 has no 32-bit Windows) and Linux Mint 22, runs the tests, and makes the
+# installers: Windows setup .exes (Inno Setup) plus portable .zips, and a .deb.
 # A tag like v1.2.0 also publishes them as a GitHub release.
 name: build
 
@@ -51,18 +52,34 @@ jobs:
 
   windows:
     runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - bits: 64bit
+            cpu: x64
+            qt: "6.8.3"
+            qtarch: win64_msvc2022_64
+            modules: qtconnectivity qtserialport
+          - bits: 32bit
+            cpu: x86
+            qt: "5.15.2"
+            qtarch: win32_msvc2019
+            modules: ""   # Qt 5's Bluetooth and serial port come with the base install
     steps:
       - uses: actions/checkout@v4
-      - name: Install Qt 6.8 LTS
+      - name: Install Qt ${{ matrix.qt }} (${{ matrix.bits }})
         uses: jurplel/install-qt-action@v4
         with:
-          version: "6.8.3"
+          version: ${{ matrix.qt }}
           host: windows
           target: desktop
-          arch: win64_msvc2022_64
-          modules: qtconnectivity qtserialport
+          arch: ${{ matrix.qtarch }}
+          modules: ${{ matrix.modules }}
           cache: true
       - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.cpu }}
       - name: Version
         id: ver
         shell: bash
@@ -83,9 +100,9 @@ jobs:
           Copy-Item build/js8mesh.exe cpp/dist/
           windeployqt --release --no-translations --no-system-d3d-compiler --no-opengl-sw cpp/dist/js8mesh.exe
           # the Visual C++ runtime, next to the program (no separate redistributable to install)
-          Copy-Item "$env:VCToolsRedistDir\x64\Microsoft.VC143.CRT\*.dll" cpp/dist/
+          Copy-Item "$env:VCToolsRedistDir\${{ matrix.cpu }}\Microsoft.VC143.CRT\*.dll" cpp/dist/
           Copy-Item README.md, COMMANDS.md, SETUP.md cpp/dist/ -ErrorAction SilentlyContinue
-          Compress-Archive -Path cpp/dist/* -DestinationPath js8mesh-${{ steps.ver.outputs.version }}-windows-portable.zip
+          Compress-Archive -Path cpp/dist/* -DestinationPath js8mesh-${{ steps.ver.outputs.version }}-windows-${{ matrix.bits }}-portable.zip
       - name: Installer (Inno Setup)
         shell: pwsh
         run: |
@@ -93,14 +110,14 @@ jobs:
             choco install innosetup -y --no-progress
             $env:PATH += ";${env:ProgramFiles(x86)}\Inno Setup 6"
           }
-          iscc /DAppVersion=${{ steps.ver.outputs.version }} /DSourceDir=..\dist cpp/packaging/js8mesh.iss
+          iscc /DAppVersion=${{ steps.ver.outputs.version }} /DBits=${{ matrix.bits }} /DSourceDir=..\dist cpp/packaging/js8mesh.iss
           Move-Item cpp/installer/*.exe .
       - uses: actions/upload-artifact@v4
         with:
-          name: js8mesh-windows
+          name: js8mesh-windows-${{ matrix.bits }}
           path: |
-            js8mesh-*-windows-setup.exe
-            js8mesh-*-windows-portable.zip
+            js8mesh-*-windows-*-setup.exe
+            js8mesh-*-windows-*-portable.zip
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -114,5 +131,5 @@ jobs:
         with:
           files: |
             js8mesh-*.deb
-            js8mesh-*-windows-setup.exe
-            js8mesh-*-windows-portable.zip
+            js8mesh-*-windows-*-setup.exe
+            js8mesh-*-windows-*-portable.zip

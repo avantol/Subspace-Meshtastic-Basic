@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
     QStringList out;
     QObject::connect(&gw, &Gateway::meshQueued, [&](const QString &, const QString &t) { out << t; });
     Settings s;
-    s.allowedNodes = {"!8a31cb4a"};
+    s.allowedNodes = QStringList{QStringLiteral("!8a31cb4a")};
     gw.setApiForTest(&api, s);
     api.up();
 

@@ -1,4 +1,5 @@
 #include "MainWindow.h"
+#include "QtCompat.h"
 #include "Gateway.h"
 
 #include <QApplication>
@@ -210,7 +211,7 @@ QWidget *MainWindow::buildMeshTab() {
     tf->addRow(tr("Node's address:"), m_meshTcpHost);
     tf->addRow(tr("Port:"), m_meshTcpPort);
     m_meshPages->addWidget(tcp);
-    connect(m_meshType, &QComboBox::currentIndexChanged, m_meshPages, &QStackedWidget::setCurrentIndex);
+    connect(m_meshType, QOverload<int>::of(&QComboBox::currentIndexChanged), m_meshPages, &QStackedWidget::setCurrentIndex);
     v->addWidget(m_meshPages);
 
     auto *f2 = new QFormLayout;
@@ -514,7 +515,7 @@ void MainWindow::scanBluetooth() {
     connect(&agent, &QBluetoothDeviceDiscoveryAgent::deviceUpdated, &dlg,
             [add](const QBluetoothDeviceInfo &d, QBluetoothDeviceInfo::Fields) { add(d); });
     connect(&agent, &QBluetoothDeviceDiscoveryAgent::finished, &dlg, [status]() { status->setText(QObject::tr("Scan finished.")); });
-    connect(&agent, &QBluetoothDeviceDiscoveryAgent::errorOccurred, &dlg,
+    connect(&agent, JS8_AGENT_ERROR, &dlg,
             [status, &agent]() { status->setText(QObject::tr("Bluetooth error: %1").arg(agent.errorString())); });
     agent.start(QBluetoothDeviceDiscoveryAgent::LowEnergyMethod);
     if (dlg.exec() == QDialog::Accepted && list->currentItem())

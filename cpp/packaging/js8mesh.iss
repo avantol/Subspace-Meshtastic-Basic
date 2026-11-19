@@ -1,7 +1,10 @@
 ; Inno Setup script for the Windows installer (built by CI, see .github/workflows/build.yml).
-; iscc /DAppVersion=1.0.0 /DSourceDir=..\dist js8mesh.iss
+; iscc /DAppVersion=1.0.0 /DBits=64bit /DSourceDir=..\dist js8mesh.iss   (Bits: 64bit or 32bit)
 #ifndef AppVersion
   #define AppVersion "1.0.0"
+#endif
+#ifndef Bits
+  #define Bits "64bit"
 #endif
 #ifndef SourceDir
   #define SourceDir "..\dist"
@@ -16,12 +19,14 @@ AppPublisherURL=https://github.com/avantol/Subspace-Meshtastic-Basic
 DefaultDirName={autopf}\JS8 Mesh Gateway
 DefaultGroupName=JS8 Mesh Gateway
 UninstallDisplayIcon={app}\js8mesh.exe
-OutputBaseFilename=js8mesh-{#AppVersion}-windows-setup
+OutputBaseFilename=js8mesh-{#AppVersion}-windows-{#Bits}-setup
 OutputDir=..\installer
 Compression=lzma2
 SolidCompression=yes
+#if Bits == "64bit"
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+#endif
 MinVersion=10.0
 WizardStyle=modern
 CloseApplications=yes
