@@ -106,10 +106,7 @@ void BleMeshLink::connectTo(const QBluetoothDeviceInfo &info) {
         }
         connect(m_svc, &QLowEnergyService::stateChanged, this, &BleMeshLink::onServiceState);
         connect(m_svc, JS8_SVC_ERROR, this,
-                [this](QLowEnergyService::ServiceError e) {
-                    // a failed read/write is reported here too; treat all as fatal (reconnect)
-                    fail(tr("Bluetooth service error %1").arg(int(e)));
-                });
+                [this](QLowEnergyService::ServiceError e) { onServiceError(int(e)); });
         connect(m_svc, &QLowEnergyService::characteristicChanged, this,
                 [this](const QLowEnergyCharacteristic &c, const QByteArray &) {
                     if (c.uuid() == kFromNum) { m_emptyReads = 0; readFromRadio(); }
@@ -139,7 +136,11 @@ void BleMeshLink::connectTo(const QBluetoothDeviceInfo &info) {
                     writeNext();
                 });
         connect(m_svc, &QLowEnergyService::descriptorWritten, this,
-                [this](const QLowEnergyDescriptor &, const QByteArray &) { transportOpened(); });
+                [this](const QLowEnergyDescriptor &, const QByteArray &) {
+                    if (!m_cccdPending) return;
+                    m_cccdPending = false;
+                    transportOpened();
+                });
         m_svc->discoverDetails();
     });
     m_ctl->connectToDevice();
@@ -157,10 +158,42 @@ void BleMeshLink::onServiceState() {
     // notifications on FromNum tell us when there is something to read
     QLowEnergyDescriptor cccd =
         m_fromNum.descriptor(QBluetoothUuid::DescriptorType::ClientCharacteristicConfiguration);
-    if (cccd.isValid())
+    if (cccd.isValid()) {
+        m_cccdPending = true;
         m_svc->writeDescriptor(cccd, QByteArray::fromHex("0100"));
+    }
     else
         transportOpened();
+}
+
+void BleMeshLink::onServiceError(int e) {
+    if (e == QLowEnergyService::DescriptorWriteError && m_cccdPending) {
+        // notifications refused (Windows does this for some links): ask the node every second
+        m_cccdPending = false;
+        emit logMessage(tr("Bluetooth: the node's notifications couldn't be turned on; polling it instead."));
+        if (!m_poll) {
+            m_poll = new QTimer(this);
+            connect(m_poll, &QTimer::timeout, this, [this]() { m_emptyReads = 0; readFromRadio(); });
+        }
+        m_poll->start(1000);
+        transportOpened();
+        return;
+    }
+    QString what;
+    switch (e) {
+    case QLowEnergyService::CharacteristicReadError: what = tr("reading from the node failed"); break;
+    case QLowEnergyService::CharacteristicWriteError: what = tr("writing to the node failed"); break;
+    case QLowEnergyService::DescriptorWriteError: what = tr("turning on the node's notifications failed"); break;
+    case QLowEnergyService::DescriptorReadError: what = tr("reading a descriptor failed"); break;
+    default: what = tr("service error %1").arg(e);
+    }
+    bool access = e == QLowEnergyService::CharacteristicReadError || e == QLowEnergyService::CharacteristicWriteError ||
+                  e == QLowEnergyService::DescriptorWriteError;
+    // a failed read/write is fatal for the link (reconnect)
+    fail(access ? tr("Bluetooth: %1. The node probably needs pairing: pair it with this computer once "
+                     "(Windows: Settings > Bluetooth & devices > Add device; Linux: bluetoothctl pair) "
+                     "using the node's Bluetooth PIN, then start again.").arg(what)
+                : tr("Bluetooth: %1").arg(what));
 }
 
 void BleMeshLink::writeToRadio(const QByteArray &toRadio) {

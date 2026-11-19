@@ -11,6 +11,7 @@
 class QBluetoothDeviceDiscoveryAgent;
 class QLowEnergyController;
 class QLowEnergyService;
+class QTimer;
 
 class BleMeshLink : public MeshLink {
     Q_OBJECT
@@ -38,6 +39,7 @@ class BleMeshLink : public MeshLink {
     void onServiceState();
     void readFromRadio();
     void writeNext();
+    void onServiceError(int error);
 
     QString m_device, m_knownAddress, m_address;
     QStringList m_seen; // names seen during the scan, for the not-found message
@@ -48,4 +50,6 @@ class BleMeshLink : public MeshLink {
     QQueue<QByteArray> m_writes;
     bool m_writing = false, m_reading = false, m_readAgain = false, m_found = false;
     int m_emptyReads = 0;
+    bool m_cccdPending = false; // waiting for the notifications switch to be written
+    QTimer *m_poll = nullptr;   // reads FromRadio every second when notifications are off
 };
