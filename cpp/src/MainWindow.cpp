@@ -426,6 +426,13 @@ void MainWindow::save() {
 
 // ---- gateway control ------------------------------------------------------------------------
 void MainWindow::startGateway() {
+    // start with what the window shows: an unsaved edit (like a node picked in Scan) counts
+    Settings shown = collectSettings();
+    if (shown.validate().isEmpty() || !m_settings.validate().isEmpty()) {
+        m_settings = shown;
+        m_settings.save();
+        showSettings(m_settings);
+    }
     QString problem = m_settings.validate();
     if (!problem.isEmpty()) {
         showNormal();
