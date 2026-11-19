@@ -171,7 +171,7 @@ void Gateway::startMesh() {
         if (!m_bleAddress.isEmpty())
             QProcess::execute("bluetoothctl", {"disconnect", m_bleAddress});
 #endif
-        link = new BleMeshLink(m_s.bleDevice, this);
+        link = new BleMeshLink(m_s.bleDevice, m_s.bleAddress, this);
         break;
     case Settings::MeshSerial:
         link = new StreamMeshLink(StreamMeshLink::Serial, m_s.serialPort, 0, this);

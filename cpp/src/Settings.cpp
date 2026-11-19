@@ -34,6 +34,7 @@ void Settings::load() {
     if (!q.contains("mesh/type")) importPythonSettings(*this);
     meshType = MeshType(q.value("mesh/type", int(meshType)).toInt());
     bleDevice = q.value("mesh/bleDevice", bleDevice).toString();
+    bleAddress = q.value("mesh/bleAddress", bleAddress).toString();
     serialPort = q.value("mesh/serialPort", serialPort).toString();
     meshTcpHost = q.value("mesh/tcpHost", meshTcpHost).toString();
     meshTcpPort = q.value("mesh/tcpPort", meshTcpPort).toInt();
@@ -63,6 +64,7 @@ void Settings::save() const {
     QSettings q;
     q.setValue("mesh/type", int(meshType));
     q.setValue("mesh/bleDevice", bleDevice);
+    q.setValue("mesh/bleAddress", bleAddress);
     q.setValue("mesh/serialPort", serialPort);
     q.setValue("mesh/tcpHost", meshTcpHost);
     q.setValue("mesh/tcpPort", meshTcpPort);

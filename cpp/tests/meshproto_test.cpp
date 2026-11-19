@@ -1,4 +1,5 @@
 // Checks MeshProto against bytes produced by the official Meshtastic Python protobufs.
+#include "BleMeshLink.h"
 #include "MeshProto.h"
 #include <cstdio>
 
@@ -45,6 +46,16 @@ int main() {
     CHECK(parseNodeId("!0b7bbe91", n) && n == 0x0b7bbe91);
     CHECK(nodeId(0x0b7bbe91) == "!0b7bbe91");
     CHECK(!parseNodeId("0b7bbe91", n));
+
+    // Bluetooth names as Windows can report them
+    CHECK(BleMeshLink::cleanName(QString("Rpt1_be91") + QChar(0) + "\x01xyz") == "Rpt1_be91");
+    CHECK(BleMeshLink::matches("Rpt1_be91", "", "Rpt1_be91", "FD:08:0B:7B:BE:91"));
+    CHECK(BleMeshLink::matches("rpt1_be91", "", "Rpt1_be91\x03\x19junk", "FD:08:0B:7B:BE:91"));
+    CHECK(BleMeshLink::matches("Rpt1_be91garbage", "", "Rpt1_be91", "FD:08:0B:7B:BE:91"));
+    CHECK(BleMeshLink::matches("Something", "FD:08:0B:7B:BE:91", "", "fd:08:0b:7b:be:91"));
+    CHECK(BleMeshLink::matches("FD:08:0B:7B:BE:91", "", "", "FD:08:0B:7B:BE:91"));
+    CHECK(!BleMeshLink::matches("Rpt1_be91", "", "Rpt2_9e66", "AA:BB:CC:DD:EE:FF"));
+    CHECK(!BleMeshLink::matches("Rpt1_be91", "", "Rpt", "AA:BB:CC:DD:EE:FF"));
 
     std::printf(failures ? "%d failure(s)\n" : "all passed\n", failures);
     return failures ? 1 : 0;

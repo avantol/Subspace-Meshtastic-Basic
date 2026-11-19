@@ -9,6 +9,7 @@ struct Settings {
     enum MeshType { MeshBle, MeshSerial, MeshTcp };
     MeshType meshType = MeshBle;
     QString bleDevice;              // Bluetooth name or address, e.g. "Rpt1_be91"
+    QString bleAddress;             // its address, as the scan dialog saw it (also matched)
     QString serialPort;             // e.g. "COM5" or "/dev/ttyACM0"
     QString meshTcpHost;            // a WiFi node's address
     int meshTcpPort = 4403;

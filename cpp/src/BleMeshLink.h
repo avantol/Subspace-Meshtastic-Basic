@@ -15,12 +15,19 @@ class QLowEnergyService;
 class BleMeshLink : public MeshLink {
     Q_OBJECT
   public:
-    // device: the node's Bluetooth name (e.g. "Rpt1_be91") or address (e.g. "FD:08:0B:7B:BE:91")
-    explicit BleMeshLink(const QString &device, QObject *parent = nullptr);
+    // device: the node's Bluetooth name (e.g. "Rpt1_be91") or address (e.g. "FD:08:0B:7B:BE:91");
+    // knownAddress: the address the scan dialog saw for it, also accepted (may be empty)
+    explicit BleMeshLink(const QString &device, const QString &knownAddress = {}, QObject *parent = nullptr);
     ~BleMeshLink() override;
     void start() override;
     QString describe() const override;
     QString address() const { return m_address; } // known once the node has been found
+    // A device name without what Windows can attach to it (a NUL and junk after it, control
+    // characters, spaces at the ends).
+    static QString cleanName(const QString &name);
+    // Does a scanned device with this name and address match the setting?
+    static bool matches(const QString &setting, const QString &knownAddress, const QString &name,
+                        const QString &address);
 
   protected:
     void writeToRadio(const QByteArray &toRadio) override;
@@ -32,7 +39,8 @@ class BleMeshLink : public MeshLink {
     void readFromRadio();
     void writeNext();
 
-    QString m_device, m_address;
+    QString m_device, m_knownAddress, m_address;
+    QStringList m_seen; // names seen during the scan, for the not-found message
     QBluetoothDeviceDiscoveryAgent *m_agent = nullptr;
     QLowEnergyController *m_ctl = nullptr;
     QPointer<QLowEnergyService> m_svc;

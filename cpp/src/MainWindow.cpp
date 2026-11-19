@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 #include "QtCompat.h"
+#include "BleMeshLink.h"
 #include "Gateway.h"
 
 #include <QApplication>
@@ -181,6 +182,8 @@ QWidget *MainWindow::buildMeshTab() {
     auto *bf = new QFormLayout(ble);
     m_bleDevice = new QLineEdit;
     m_bleDevice->setPlaceholderText(tr("e.g. Rpt1_be91"));
+    // a name typed by hand: forget the address the scan found for the old one
+    connect(m_bleDevice, &QLineEdit::textEdited, this, [this]() { m_bleAddress.clear(); });
     auto *scan = new QPushButton(tr("Scan..."));
     connect(scan, &QPushButton::clicked, this, &MainWindow::scanBluetooth);
     auto *bh = new QHBoxLayout;
@@ -336,6 +339,7 @@ void MainWindow::showSettings(const Settings &s) {
     m_meshType->setCurrentIndex(int(s.meshType));
     m_meshPages->setCurrentIndex(int(s.meshType));
     m_bleDevice->setText(s.bleDevice);
+    m_bleAddress = s.bleAddress;
     m_serialPort->setCurrentText(s.serialPort);
     m_meshTcpHost->setText(s.meshTcpHost);
     m_meshTcpPort->setValue(s.meshTcpPort);
@@ -363,7 +367,8 @@ Settings MainWindow::collectSettings() const {
     static const QRegularExpression sep(QStringLiteral("[\\s,;]+"));
     Settings s;
     s.meshType = Settings::MeshType(m_meshType->currentIndex());
-    s.bleDevice = m_bleDevice->text().trimmed();
+    s.bleDevice = BleMeshLink::cleanName(m_bleDevice->text());
+    s.bleAddress = m_bleAddress;
     s.serialPort = m_serialPort->currentText().trimmed();
     s.meshTcpHost = m_meshTcpHost->text().trimmed();
     s.meshTcpPort = m_meshTcpPort->value();
@@ -498,15 +503,18 @@ void MainWindow::scanBluetooth() {
     auto add = [list](const QBluetoothDeviceInfo &d) {
         if (d.name().isEmpty() || !(d.coreConfigurations() & QBluetoothDeviceInfo::LowEnergyCoreConfiguration)) return;
         bool mesh = d.serviceUuids().contains(kMeshtasticService);
-        QString label = QStringLiteral("%1   (%2, %3 dBm)%4").arg(d.name(), d.address().toString()).arg(d.rssi())
+        QString name = BleMeshLink::cleanName(d.name());
+        if (name.isEmpty()) return;
+        QString label = QStringLiteral("%1   (%2, %3 dBm)%4").arg(name, d.address().toString()).arg(d.rssi())
                             .arg(mesh ? QObject::tr("  Meshtastic") : QString());
         for (int i = 0; i < list->count(); ++i)
-            if (list->item(i)->data(Qt::UserRole).toString() == d.name()) {
+            if (list->item(i)->data(Qt::UserRole + 1).toString() == d.address().toString()) {
                 list->item(i)->setText(label);
                 return;
             }
         auto *item = new QListWidgetItem(label);
-        item->setData(Qt::UserRole, d.name());
+        item->setData(Qt::UserRole, name);
+        item->setData(Qt::UserRole + 1, d.address().toString());
         if (mesh) list->insertItem(0, item);
         else list->addItem(item);
         if (!list->currentItem()) list->setCurrentRow(0);
@@ -518,7 +526,9 @@ void MainWindow::scanBluetooth() {
     connect(&agent, JS8_AGENT_ERROR, &dlg,
             [status, &agent]() { status->setText(QObject::tr("Bluetooth error: %1").arg(agent.errorString())); });
     agent.start(QBluetoothDeviceDiscoveryAgent::LowEnergyMethod);
-    if (dlg.exec() == QDialog::Accepted && list->currentItem())
+    if (dlg.exec() == QDialog::Accepted && list->currentItem()) {
         m_bleDevice->setText(list->currentItem()->data(Qt::UserRole).toString());
+        m_bleAddress = list->currentItem()->data(Qt::UserRole + 1).toString();
+    }
     agent.stop();
 }

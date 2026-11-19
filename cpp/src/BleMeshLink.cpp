@@ -19,7 +19,34 @@ constexpr int kSetupMs = 60 * 1000;
 constexpr int kEmptyReadRetries = 5; // a reply can lag a write a little; read again a few times
 }
 
-BleMeshLink::BleMeshLink(const QString &device, QObject *parent) : MeshLink(parent), m_device(device.trimmed()) {}
+BleMeshLink::BleMeshLink(const QString &device, const QString &knownAddress, QObject *parent)
+    : MeshLink(parent), m_device(cleanName(device)), m_knownAddress(knownAddress.trimmed()) {}
+
+QString BleMeshLink::cleanName(const QString &name) {
+    QString s = name;
+    int nul = s.indexOf(QChar(0));
+    if (nul >= 0) s.truncate(nul);
+    QString out;
+    for (QChar c : s)
+        if (c.isPrint()) out += c;
+    return out.trimmed();
+}
+
+bool BleMeshLink::matches(const QString &setting, const QString &knownAddress, const QString &name,
+                          const QString &address) {
+    QString want = cleanName(setting), got = cleanName(name);
+    if (want.isEmpty()) return false;
+    if (address.compare(want, Qt::CaseInsensitive) == 0) return true;
+    if (!knownAddress.isEmpty() && address.compare(knownAddress, Qt::CaseInsensitive) == 0 &&
+        address != QLatin1String("00:00:00:00:00:00"))
+        return true;
+    if (got.isEmpty()) return false;
+    if (got.compare(want, Qt::CaseInsensitive) == 0) return true;
+    // one name cut short or padded: "Rpt1_be91" vs "Rpt1_be91<junk>"
+    const QString &shorter = got.size() < want.size() ? got : want;
+    const QString &longer = got.size() < want.size() ? want : got;
+    return shorter.size() >= 4 && longer.startsWith(shorter, Qt::CaseInsensitive);
+}
 
 BleMeshLink::~BleMeshLink() {
     if (m_ctl) m_ctl->disconnectFromDevice();
@@ -34,7 +61,9 @@ void BleMeshLink::start() {
     connect(m_agent, &QBluetoothDeviceDiscoveryAgent::deviceUpdated, this,
             [this](const QBluetoothDeviceInfo &info, QBluetoothDeviceInfo::Fields) { onDeviceFound(info); });
     connect(m_agent, &QBluetoothDeviceDiscoveryAgent::finished, this, [this]() {
-        if (!m_found) fail(tr("Bluetooth device '%1' not found (out of range, or another device is connected to it?)").arg(m_device));
+        if (!m_found)
+            fail(tr("Bluetooth device '%1' not found (out of range, or another device is connected to it?). Seen: %2")
+                     .arg(m_device, m_seen.isEmpty() ? tr("nothing") : m_seen.join(", ")));
     });
     connect(m_agent, JS8_AGENT_ERROR, this,
             [this]() { fail(tr("Bluetooth scan failed: %1").arg(m_agent->errorString())); });
@@ -44,10 +73,14 @@ void BleMeshLink::start() {
 
 void BleMeshLink::onDeviceFound(const QBluetoothDeviceInfo &info) {
     if (m_found || m_failed) return;
-    bool match = info.name().compare(m_device, Qt::CaseInsensitive) == 0 ||
-                 info.address().toString().compare(m_device, Qt::CaseInsensitive) == 0 ||
+    QString addr = info.address().toString();
+    bool match = matches(m_device, m_knownAddress, info.name(), addr) ||
                  info.deviceUuid().toString(QUuid::WithoutBraces).compare(m_device, Qt::CaseInsensitive) == 0;
-    if (!match) return;
+    if (!match) {
+        QString seen = QStringLiteral("%1 (%2)").arg(cleanName(info.name()), addr);
+        if (!m_seen.contains(seen) && m_seen.size() < 20) m_seen << seen;
+        return;
+    }
     m_found = true;
     m_agent->stop();
     connectTo(info);
@@ -55,7 +88,7 @@ void BleMeshLink::onDeviceFound(const QBluetoothDeviceInfo &info) {
 
 void BleMeshLink::connectTo(const QBluetoothDeviceInfo &info) {
     m_address = info.address().toString();
-    emit logMessage(tr("Found %1 (%2, %3 dBm); connecting...").arg(info.name(), m_address).arg(info.rssi()));
+    emit logMessage(tr("Found %1 (%2, %3 dBm); connecting...").arg(cleanName(info.name()), m_address).arg(info.rssi()));
     m_ctl = QLowEnergyController::createCentral(info, this);
     // connecting and discovering the service must finish in time; a weak link can stall there
     QTimer::singleShot(kSetupMs, this, [this]() {

@@ -56,6 +56,7 @@ class MainWindow : public QMainWindow {
     QComboBox *m_meshType;
     QStackedWidget *m_meshPages;
     QLineEdit *m_bleDevice, *m_meshTcpHost, *m_allowed;
+    QString m_bleAddress; // the scanned node's address (not shown)
     QComboBox *m_serialPort;
     QSpinBox *m_meshTcpPort, *m_hopLimit;
     // Subspace station tab
