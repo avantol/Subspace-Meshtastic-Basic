@@ -199,8 +199,11 @@ QWidget *MainWindow::buildMeshTab() {
     bh->addWidget(m_bleDevice, 1);
     bh->addWidget(scan);
     bf->addRow(tr("Node's Bluetooth name or address:"), bh);
-    bf->addRow(note(tr("Pair the node once in your system's Bluetooth settings (its PIN is on its screen, "
-                       "or 123456). While the gateway is connected, the phone app can't connect to this node.")));
+    bf->addRow(note(tr("<b>Pair the node with this computer first</b>, once: Windows: Settings &gt; Bluetooth "
+                       "&amp; devices &gt; Add device &gt; Bluetooth; Linux: Bluetooth settings or bluetoothctl. "
+                       "Use the node's Bluetooth PIN (shown on its screen, or its fixed PIN, often 123456). "
+                       "Without pairing, connecting fails with a Bluetooth read/write error. "
+                       "While the gateway is connected, the phone app can't connect to this node.")));
     m_meshPages->addWidget(ble);
     // Serial
     auto *ser = new QWidget;
@@ -508,7 +511,7 @@ void MainWindow::scanBluetooth() {
     v->addWidget(status);
     v->addWidget(list);
     v->addWidget(note(tr("Meshtastic nodes are listed first. If yours is missing: is it in range, powered on, "
-                         "and not connected to a phone or a running gateway?")));
+                         "and not connected to a phone or a running gateway? Pair the node with this computer before starting.")));
     v->addWidget(box);
     connect(box, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
     connect(box, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
