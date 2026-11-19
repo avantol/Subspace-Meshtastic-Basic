@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.19)
-project(js8mesh VERSION 1.0.1 LANGUAGES CXX)
+project(js8mesh VERSION 1.0.2 LANGUAGES CXX)
 
 # Qt 6.4 or later (Linux Mint 22 ships 6.4.2), or Qt 5.15 for 32-bit Windows (Qt 6 has no
 # 32-bit Windows builds).
