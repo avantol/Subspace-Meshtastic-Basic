@@ -10,6 +10,24 @@ constexpr int kReplyTimeoutMs = 15000;   // the server itself answers API.NO_REP
 constexpr int kNoReplyWaitMs = 3000;     // commands with no reply: the server holds the request open
 constexpr int kRetryMs = 10000;          // event stream reconnect delay
 constexpr int kWatchdogMs = 60000;       // the server sends a keep-alive every 15 s
+
+// A network error in words. Qt 5 reports a timeout as "Operation canceled".
+QString netError(QNetworkReply *r, const QString &url) {
+    switch (r->error()) {
+    case QNetworkReply::OperationCanceledError:
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
+    case QNetworkReply::TimeoutError:
+#endif
+        return QObject::tr("no answer from %1 (wrong address, not on the same network, a firewall, "
+                           "or the phone remote is off in Subspace)").arg(url);
+    case QNetworkReply::ConnectionRefusedError:
+        return QObject::tr("%1 refused the connection (is the phone remote on in Subspace?)").arg(url);
+    case QNetworkReply::HostNotFoundError:
+        return QObject::tr("address %1 not found").arg(url);
+    default:
+        return r->errorString();
+    }
+}
 }
 
 SubspaceRemoteApi::SubspaceRemoteApi(const QString &url, const QString &passcode, int reloginSeconds, QObject *parent)
@@ -71,7 +89,7 @@ void SubspaceRemoteApi::withSession(std::function<void(const QString &)> then) {
         QString error;
         if (status == 403) error = tr("wrong pass code");
         else if (status == 429) error = tr("login locked for 60 s after wrong pass codes");
-        else if (r->error() != QNetworkReply::NoError) error = r->errorString();
+        else if (r->error() != QNetworkReply::NoError) error = netError(r, m_url);
         else {
             QByteArray s = QJsonDocument::fromJson(r->readAll()).object().value("session").toString().toUtf8();
             if (s.isEmpty()) error = tr("unexpected login reply");
