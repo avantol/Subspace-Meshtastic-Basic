@@ -145,6 +145,11 @@ QWidget *MainWindow::buildGatewayTab() {
     auto *f = new QFormLayout(status);
     m_meshState = new QLabel(tr("○ stopped"));
     m_js8State = new QLabel(tr("○ stopped"));
+    // long status text wraps; it never widens the window
+    for (QLabel *l : {m_meshState, m_js8State}) {
+        l->setWordWrap(true);
+        l->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    }
     f->addRow(tr("Meshtastic node:"), m_meshState);
     f->addRow(tr("JS8 station:"), m_js8State);
     m_startBtn = new QPushButton(tr("Start gateway"));
@@ -162,7 +167,11 @@ QWidget *MainWindow::buildGatewayTab() {
     m_log->setMaximumBlockCount(5000);
     m_log->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
     m_log->setLineWrapMode(QPlainTextEdit::NoWrap);
-    v->addWidget(new QLabel(tr("Log (also saved to %1):").arg(QDir::toNativeSeparators(m_logFile.fileName()))));
+    auto *logLabel = new QLabel(tr("Log (also saved to %1):").arg(QDir::toNativeSeparators(m_logFile.fileName())));
+    logLabel->setWordWrap(true);
+    logLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    logLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    v->addWidget(logLabel);
     v->addWidget(m_log, 1);
     return w;
 }
