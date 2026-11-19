@@ -191,8 +191,13 @@ void Gateway::startMesh() {
     });
     connect(link, &MeshLink::lost, this, &Gateway::onMeshLost);
     connect(link, &MeshLink::textReceived, this, [this, link](quint32 from, quint32 to, const QString &text) {
-        if (to != link->myNodeNum()) return; // channel traffic, not a DM to the gateway
         QString sender = meshproto::nodeId(from);
+        if (to != link->myNodeNum()) { // channel traffic, not a DM to the gateway
+            if (m_s.allowedNodes.contains(sender, Qt::CaseInsensitive))
+                log(tr("MESH channel text from %1 ignored (commands must be a DM to the gateway's node): '%2'")
+                        .arg(link->nodeName(from), text));
+            return;
+        }
         log(tr("MESH RX <- %1 '%2'").arg(link->nodeName(from), text));
         if (!m_s.allowedNodes.contains(sender, Qt::CaseInsensitive)) {
             log(tr("  ignored: sender not in the allowed nodes"));

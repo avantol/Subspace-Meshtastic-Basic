@@ -40,6 +40,7 @@ class BleMeshLink : public MeshLink {
     void readFromRadio();
     void writeNext();
     void onServiceError(int error);
+    void startPolling(int ms);
 
     QString m_device, m_knownAddress, m_address;
     QStringList m_seen; // names seen during the scan, for the not-found message

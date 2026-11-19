@@ -139,6 +139,8 @@ void BleMeshLink::connectTo(const QBluetoothDeviceInfo &info) {
                 [this](const QLowEnergyDescriptor &, const QByteArray &) {
                     if (!m_cccdPending) return;
                     m_cccdPending = false;
+                    // notifications can still go missing (seen on Windows): check every few seconds too
+                    startPolling(3000);
                     transportOpened();
                 });
         m_svc->discoverDetails();
@@ -162,8 +164,22 @@ void BleMeshLink::onServiceState() {
         m_cccdPending = true;
         m_svc->writeDescriptor(cccd, QByteArray::fromHex("0100"));
     }
-    else
+    else {
+        startPolling(1000);
         transportOpened();
+    }
+}
+
+void BleMeshLink::startPolling(int ms) {
+    if (!m_poll) {
+        m_poll = new QTimer(this);
+        connect(m_poll, &QTimer::timeout, this, [this]() {
+            if (m_reading) return;
+            m_emptyReads = kEmptyReadRetries; // one read; no retries when it comes back empty
+            readFromRadio();
+        });
+    }
+    m_poll->start(ms);
 }
 
 void BleMeshLink::onServiceError(int e) {
@@ -171,11 +187,7 @@ void BleMeshLink::onServiceError(int e) {
         // notifications refused (Windows does this for some links): ask the node every second
         m_cccdPending = false;
         emit logMessage(tr("Bluetooth: the node's notifications couldn't be turned on; polling it instead."));
-        if (!m_poll) {
-            m_poll = new QTimer(this);
-            connect(m_poll, &QTimer::timeout, this, [this]() { m_emptyReads = 0; readFromRadio(); });
-        }
-        m_poll->start(1000);
+        startPolling(1000);
         transportOpened();
         return;
     }
