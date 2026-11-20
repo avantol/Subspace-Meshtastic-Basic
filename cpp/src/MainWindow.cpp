@@ -151,7 +151,7 @@ QWidget *MainWindow::buildGatewayTab() {
         l->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     }
     f->addRow(tr("Meshtastic node:"), m_meshState);
-    f->addRow(tr("JS8 station:"), m_js8State);
+    f->addRow(tr("Subspace station:"), m_js8State);
     m_startBtn = new QPushButton(tr("Start gateway"));
     m_stopBtn = new QPushButton(tr("Stop gateway"));
     connect(m_startBtn, &QPushButton::clicked, this, &MainWindow::startGateway);
