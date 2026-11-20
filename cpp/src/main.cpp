@@ -13,7 +13,8 @@ int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
     QApplication::setOrganizationName("js8mesh");
     QApplication::setApplicationName("js8mesh");
-    QApplication::setApplicationDisplayName("JS8 Mesh Gateway");
+    // the version shows in the title bar; a title equal to this gets nothing appended
+    QApplication::setApplicationDisplayName(QStringLiteral("JS8 Mesh Gateway %1").arg(JS8MESH_VERSION));
     QApplication::setApplicationVersion(JS8MESH_VERSION);
     QApplication::setQuitOnLastWindowClosed(false); // the tray icon may keep it running
 

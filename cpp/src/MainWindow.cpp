@@ -77,7 +77,7 @@ QSpinBox *spin(int lo, int hi, const QString &suffix = {}) {
 } // namespace
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), m_gw(new Gateway(this)) {
-    setWindowTitle(tr("JS8 Mesh Gateway"));
+    setWindowTitle(QApplication::applicationDisplayName());
     setWindowIcon(appIcon());
 
     QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
